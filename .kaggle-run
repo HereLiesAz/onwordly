@@ -5,4 +5,4 @@ accelerator: NvidiaTeslaT4
 model: Qwen/Qwen2.5-0.5B
 manifest: experiments/001-arithmetic-curriculum/manifest.json
 seeds: 3303,4404,5505
-run: 6
+run: 7
