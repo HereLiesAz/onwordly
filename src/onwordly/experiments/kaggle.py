@@ -9,6 +9,10 @@ from onwordly.experiments.arithmetic import run_experiment
 from onwordly.experiments.manifest import ArithmeticExperimentManifest
 from onwordly.experiments.suite import run_suite
 from onwordly.reporting.arithmetic import render_result
+from onwordly.experiments.symbolic import run_symbolic_experiment
+from onwordly.experiments.symbolic_manifest import SymbolicExperimentManifest
+from onwordly.experiments.symbolic_suite import run_symbolic_suite
+from onwordly.reporting.symbolic import render_symbolic_result
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,7 +44,7 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
     seeds_text = values.get("seeds", "3303,4404,5505")
     seeds = tuple(int(value.strip()) for value in seeds_text.split(",") if value.strip())
 
-    if experiment not in {"001", "002"}:
+    if experiment not in {"001", "002", "003"}:
         raise ValueError(f"unsupported experiment: {experiment}")
     if mode not in {"single", "suite"}:
         raise ValueError(f"unsupported mode: {mode}")
@@ -59,6 +63,27 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
 
 def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
     root = Path(output_root)
+
+    if plan.experiment == "003":
+        symbolic_manifest = SymbolicExperimentManifest.from_json(plan.manifest)
+        if plan.mode == "single":
+            output = root / "003-symbolic-transformations"
+            run_symbolic_experiment(symbolic_manifest, output_dir=output)
+            result_path = output / "summary.json"
+        else:
+            output = root / "003-symbolic-transformations-suite"
+            run_symbolic_suite(
+                symbolic_manifest,
+                seeds=plan.seeds,
+                output_dir=output,
+            )
+            result_path = output / "aggregate.json"
+        (output / "RESULTS.md").write_text(
+            render_symbolic_result(result_path),
+            encoding="utf-8",
+        )
+        return output
+
     manifest = ArithmeticExperimentManifest.from_json(plan.manifest)
 
     if plan.experiment == "001" and plan.mode == "single":

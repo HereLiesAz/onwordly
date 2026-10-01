@@ -50,9 +50,10 @@ onwordly-symbolic \
 
 ## Next dependency chain
 
-1. add a repeated-seed symbolic suite and report renderer;
-2. add a composition split that chains two transformations;
-3. run the smoke path, then one full seed;
-4. only if sane, run repeated seeds and compare transfer of the arithmetic finding.
+1. add a composition split that chains two transformations;
+2. run the smoke path, then one full seed;
+3. only if sane, run `onwordly-symbolic-suite --seeds 3303 4404 5505` and compare transfer of the arithmetic finding.
+
+The repeated-seed suite, Markdown renderer, and Kaggle single/suite execution path are already prepared.
 
 No symbolic result should be interpreted until repeated-seed controls exist.

@@ -28,3 +28,17 @@ def test_experiment_002_suite_stays_gated(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="gated"):
         load_run_plan(plan_path)
+
+
+def test_experiment_003_suite_is_prepared(tmp_path: Path) -> None:
+    plan_path = tmp_path / ".kaggle-run"
+    plan_path.write_text(
+        "experiment: 003\n"
+        "mode: suite\n"
+        "manifest: experiments/003-symbolic-transformations/manifest.json\n"
+        "seeds: 3303,4404,5505\n",
+        encoding="utf-8",
+    )
+    plan = load_run_plan(plan_path)
+    assert plan.experiment == "003"
+    assert plan.mode == "suite"
