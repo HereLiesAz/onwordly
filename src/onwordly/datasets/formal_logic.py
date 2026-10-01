@@ -33,7 +33,7 @@ def build_static_logic_dataset(
     rng = Random(seed)
     tasks: list[LogicTask] = []
     for index in range(size):
-        depth = depths[index % len(depths)]
+        depth = eligible_depths[index % len(eligible_depths)]
         for _ in range(10_000):
             task = generate_logic_task(rng, depth, variables=variables)
             if any(
@@ -67,7 +67,8 @@ def build_logic_composition_dataset(
 ) -> tuple[LogicTask, ...]:
     if size < 1:
         raise ValueError("size must be positive")
-    if not depths or max(depths) < 2:
+    eligible_depths = tuple(depth for depth in depths if depth >= 2)
+    if not eligible_depths:
         raise ValueError("composition evaluation requires depth at least 2")
     parent_kind, child_kind = composition
     if parent_kind == "var" or child_kind == "var":
