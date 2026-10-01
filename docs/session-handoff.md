@@ -48,20 +48,21 @@ That file currently contains only instructions because no real model result exis
 
 ## Current blocker
 
-The repository is now registered with the central workflow controller and `.github/workflows/ci.yml` is actively bound to the shared `ci-validation.yml` executor. The bootstrap Python CI run passed before the controller replaced the source with its tracker.
+The repository is registered with the central workflow controller and `.github/workflows/ci.yml` is actively bound to the shared `ci-validation.yml` executor.
+
+Centralization has been verified end-to-end. On a normal Onwordly push, the repository tracker located central run `36828714192`; shared Python validation passed on Python 3.10, 3.11, and 3.12, and the tracker run `36828698406` completed successfully.
 
 A real model run has not yet been completed. Attempts to launch both CPU and GPU Hugging Face Jobs from the connected account returned HTTP **402 Payment Required**. The connected environment therefore cannot currently execute the Qwen experiment.
 
 ## Exact next actions
 
-1. Confirm the centralized tracker successfully follows a shared `ci-validation` run on a normal push.
-2. Obtain compute for `Qwen/Qwen2.5-0.5B`.
-3. Run one seed with `onwordly-arithmetic`.
-4. Render and inspect the single-run report.
-5. If sane, run `onwordly-arithmetic-suite --seeds 3303 4404 5505`.
-6. Render the suite report into `experiments/001-arithmetic-curriculum/RESULTS.md`.
-7. Inspect `checkpoints.csv` and every seed before interpreting the aggregate.
-8. If an adaptive regime shows a repeatable advantage, design an ablation before adding PRMs, MCTS, or multi-agent language games.
+1. Obtain compute for `Qwen/Qwen2.5-0.5B`.
+2. Run one seed with `onwordly-arithmetic`.
+3. Render and inspect the single-run report.
+4. If sane, run `onwordly-arithmetic-suite --seeds 3303 4404 5505`.
+5. Render the suite report into `experiments/001-arithmetic-curriculum/RESULTS.md`.
+6. Inspect `checkpoints.csv` and every seed before interpreting the aggregate.
+7. If an adaptive regime shows a repeatable advantage, design an ablation before adding PRMs, MCTS, or multi-agent language games.
 
 ## Interpretation rule
 
