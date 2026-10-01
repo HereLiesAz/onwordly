@@ -18,14 +18,6 @@ The first real-model run is currently executing on Kaggle GPU through the centra
 
 See [experiments/001-arithmetic-curriculum](experiments/001-arithmetic-curriculum/README.md).
 
-## Experiment 007 — exact process-supervision substrate
-
-The program-execution domain now exposes exact accumulator traces for every
-instruction, creating a mechanically verified process-supervision testbed. The
-comparison is prepared as a research direction, not yet an empirical result.
-
-See [experiments/007-program-process-supervision](experiments/007-program-process-supervision/README.md).
-
 ## Experiment 002 — prepared ablation
 
 The next experiment is already scaffolded so we do not have to invent an explanation after seeing Experiment 001.
@@ -73,6 +65,14 @@ also has adaptive/error-focused curricula, an equal-token runner, deeper-formula
 evaluation, repeated-seed aggregation, and Kaggle execution support.
 
 See [experiments/006-formal-logic](experiments/006-formal-logic/README.md).
+
+## Experiment 007 — exact process-supervision substrate
+
+The program-execution domain now exposes exact accumulator traces for every
+instruction, creating a mechanically verified process-supervision testbed. The
+comparison is prepared as a research direction, not yet an empirical result.
+
+See [experiments/007-program-process-supervision](experiments/007-program-process-supervision/README.md).
 
 ## Local commands
 
@@ -128,6 +128,7 @@ Read `AGENTS.md`, then `docs/session-handoff.md`.
 - `AGENTS.md` — rules for future sessions and contributors.
 - `docs/research-program.md` — research thesis and phases.
 - `docs/novelty-ledger.md` — prior art versus actual hypotheses.
+- `docs/experiment-matrix.md` — experiment states, invariants, evidence ladder, and compute gates.
 - `docs/session-handoff.md` — current state and next actions.
 - `experiments/` — experiment specifications and manifests.
 - `src/onwordly/datasets/` — frozen dataset generation.

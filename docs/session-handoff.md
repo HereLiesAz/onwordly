@@ -121,7 +121,8 @@ Main now includes:
 - Experiment 004 constrained string manipulation with exact verification, adaptive/error-focused curricula, held-out/longer-string evaluation, full/smoke manifests, repeated-seed reporting, and Kaggle execution;
 - Experiment 005 simple program execution with an exact accumulator DSL interpreter, adaptive/error-focused curricula, held-out/longer-program evaluation, full/smoke manifests, repeated-seed reporting, and Kaggle execution;
 - Experiment 006 formal logic with an exact propositional AST evaluator, adaptive/error-focused curricula, held-out/deeper-formula evaluation, full/smoke manifests, repeated-seed reporting, and Kaggle execution;
-- experiment-specific Kaggle manifest defaults and report CLIs for all prepared domains.
+- experiment-specific Kaggle manifest defaults and report CLIs for all prepared domains;
+- Experiment 007 exact program-state process supervision with a common prompt, outcome-only versus trace targets, exact final/trace verifiers, and full/smoke manifests.
 
 The newer development commits are still queued for centralized CI behind the long-running experiment workload. Do not describe them as CI-validated until the latest queued validation completes.
 
@@ -131,8 +132,12 @@ The newer development commits are still queued for centralized CI behind the lon
 2. Inspect and fix the newest centralized CI result as soon as it executes.
 3. Smoke-test Experiments 003–006 before any full new-domain spend.
 4. Add composition-specific evaluation to Experiments 004–006 where it measures a genuinely distinct generalization axis.
-5. Use the exact program interpreter as the first process-supervision substrate: record intermediate accumulator states and compare outcome-only training against exact trace supervision without claiming process supervision as novel.
+5. CI-validate and smoke-test Experiment 007's common-prompt outcome-vs-trace ablation; do not give it repeated-seed compute until target-token/example accounting is inspected.
 6. Only after cross-domain results exist decide whether search, distillation, or multi-agent language games deserve the next compute budget.
+
+## Experiment map
+
+See `docs/experiment-matrix.md` for the cross-domain comparison table, evidence ladder, and compute gates.
 
 ## Interpretation rule
 

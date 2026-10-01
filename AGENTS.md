@@ -5,8 +5,9 @@ Read these before changing the research design:
 1. `README.md`
 2. `docs/research-program.md`
 3. `docs/novelty-ledger.md`
-4. `docs/session-handoff.md`
-5. the README and manifest for the experiment being changed
+4. `docs/experiment-matrix.md`
+5. `docs/session-handoff.md`
+6. the README and manifest for the experiment being changed
 
 ## Non-negotiable rules
 
@@ -19,8 +20,8 @@ Read these before changing the research design:
 - Keep repository Actions centralized through `HereLiesAz/workflows`; do not add one-off local workflow implementations.
 - Update `docs/session-handoff.md` whenever the current state or next actions change.
 
-## Current experiment
+## Current program
 
-Experiment 001 tests whether adaptive generated curricula improve arithmetic capability per training token over a frozen static baseline.
+Experiment 001 and the Experiment 002 arithmetic ablation own the active real-model compute. Experiments 003–006 extend the same exact-verification discipline across symbolic transformations, constrained strings, program execution, and formal logic. Experiment 007 prepares an exact process-supervision ablation using program-state traces.
 
-The code is intended to make the boring comparison clean before adding PRMs, MCTS, multi-agent language games, or any other expensive furniture.
+Use `docs/experiment-matrix.md` to keep the evidence ladder and compute gates straight before launching anything expensive.
