@@ -46,7 +46,9 @@ def test_process_supervision_ablation_uses_equal_token_ceiling(tmp_path) -> None
         evaluation_size=8, checkpoint_evaluation_size=4, checkpoint_interval_tokens=10,
         dataset_seed=1, evaluation_seed=2, training_seed=3, learning_rate=2e-5,
         max_new_tokens=8, lengths=(3,), out_of_range_lengths=(5,),
-        operations=("SET","ADD","SUB"), argument_min=-3, argument_max=3,
+        operations=("SET","ADD","SUB","MUL","NEG"),
+        withheld_transition=("MUL","NEG"),
+        argument_min=-3, argument_max=3,
         variants_per_failure=2, holdout_modulus=5,
     )
     result = run_process_supervision_experiment(

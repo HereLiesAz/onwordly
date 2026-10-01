@@ -95,6 +95,7 @@ def run_program_experiment(
         size=manifest.static_dataset_size,
         lengths=manifest.lengths,
         partition="train",
+        forbidden_transitions=(manifest.withheld_transition,),
         **common,
     )
     heldout = build_static_program_dataset(
