@@ -72,6 +72,24 @@ def test_experiment_005_suite_is_prepared(tmp_path: Path) -> None:
     assert plan.mode == "suite"
 
 
+def test_experiment_007_single_is_prepared_but_suite_is_gated(tmp_path: Path) -> None:
+    plan_path = tmp_path / ".kaggle-run"
+    plan_path.write_text(
+        "experiment: 007\n"
+        "mode: single\n"
+        "manifest: experiments/007-program-process-supervision/smoke-manifest.json\n"
+        "seeds: 3303\n",
+        encoding="utf-8",
+    )
+    plan = load_run_plan(plan_path)
+    assert plan.experiment == "007"
+    assert plan.mode == "single"
+
+    plan_path.write_text("experiment: 007\nmode: suite\nseeds: 3303,4404,5505\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="gated"):
+        load_run_plan(plan_path)
+
+
 def test_experiment_006_suite_is_prepared(tmp_path: Path) -> None:
     plan_path = tmp_path / ".kaggle-run"
     plan_path.write_text(
@@ -95,6 +113,7 @@ def test_experiment_006_suite_is_prepared(tmp_path: Path) -> None:
         ("004", "experiments/004-string-manipulation/manifest.json"),
         ("005", "experiments/005-program-execution/manifest.json"),
         ("006", "experiments/006-formal-logic/manifest.json"),
+        ("007", "experiments/007-program-process-supervision/manifest.json"),
     ),
 )
 def test_default_manifest_matches_experiment(
