@@ -89,10 +89,9 @@ The newer development commits are still queued for centralized CI behind the lon
 1. Let transparent Experiment 001 run 9 and Experiment 002 run 10 dispatch through the fixed Kaggle runner; verify explicit successful-push output before calling either live.
 2. If Kaggle still reports the two-GPU-session ceiling, preserve the fail-fast evidence and wait for the older Kaggle sessions to finish or stop them through Kaggle once their session IDs are available.
 3. Inspect and fix the newest centralized CI result as soon as it executes.
-4. Smoke-test Experiments 003–006 before any full new-domain spend.
-5. Add composition-specific evaluation to Experiment 006; Experiments 003 and 004 already have composition splits, and Experiment 005 has a withheld-transition split.
-6. CI-validate and smoke-test Experiment 007's common-prompt outcome-vs-trace ablation; do not give it repeated-seed compute until target-token/example accounting is inspected.
-7. Only after cross-domain results exist decide whether search, distillation, or multi-agent language games deserve the next compute budget.
+4. Smoke-test Experiments 003–006 before any full new-domain spend; verify Experiment 006's withheld-composition dataset and aggregate/report path in that smoke.
+5. CI-validate and smoke-test Experiment 007's common-prompt outcome-vs-trace ablation; inspect its exact token-utilization, examples-per-budget, first-pass cost, and exposure ratios before enabling repeated seeds.
+6. Only after cross-domain results exist decide whether search, distillation, or multi-agent language games deserve the next compute budget.
 
 ## Experiment map
 
