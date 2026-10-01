@@ -55,7 +55,7 @@ Initial domains:
 - symbolic transformations — deterministic generator/verifier substrate implemented;
 - constrained string manipulation — deterministic generator/verifier substrate implemented;
 - simple program execution — deterministic DSL/interpreter substrate implemented;
-- formal logic.
+- formal logic — deterministic propositional generator/evaluator substrate implemented.
 
 ### Phase 1 — curriculum efficiency
 
