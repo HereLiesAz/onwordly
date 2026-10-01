@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from onwordly.tasks.string_manipulation import StringTask
+from typing import Protocol
 
 
-def verify_string_answer(task: StringTask, response: str) -> bool:
+class StringAnswerTask(Protocol):
+    answer: str
+
+
+def verify_string_answer(task: StringAnswerTask, response: str) -> bool:
     return response.strip() == task.answer

@@ -10,6 +10,7 @@ from typing import Callable, Sequence
 from onwordly.curricula.string_manipulation import AdaptiveStringCurriculum
 from onwordly.datasets.string_manipulation import (
     build_static_string_dataset,
+    build_string_composition_dataset,
     write_string_jsonl,
 )
 from onwordly.experiments.string_manifest import StringExperimentManifest
@@ -108,11 +109,21 @@ def run_string_experiment(
         partition="eval",
         partition_modulus=manifest.holdout_modulus,
     )
+    composition = build_string_composition_dataset(
+        seed=manifest.evaluation_seed + 2,
+        size=manifest.composition_evaluation_size,
+        operations=manifest.operations,
+        lengths=manifest.lengths,
+        alphabet=manifest.alphabet,
+        partition="eval",
+        partition_modulus=manifest.holdout_modulus,
+    )
     checkpoints = heldout[: manifest.checkpoint_evaluation_size]
 
     write_string_jsonl(train, output / "static-train.jsonl")
     write_string_jsonl(heldout, output / "evaluation-heldout.jsonl")
     write_string_jsonl(longer, output / "evaluation-longer-strings.jsonl")
+    write_string_jsonl(composition, output / "evaluation-composition.jsonl")
 
     factory = create_adapter or _factory(manifest)
     result: dict[str, object] = {
@@ -152,6 +163,7 @@ def run_string_experiment(
         eval_started = perf_counter()
         heldout_result = evaluate_string_tasks(adapter, heldout)
         longer_result = evaluate_string_tasks(adapter, longer)
+        composition_result = evaluate_string_tasks(adapter, composition)
         _sync(adapter)
         eval_seconds = perf_counter() - eval_started
         peak_reader = getattr(adapter, "peak_memory_bytes", None)
@@ -167,10 +179,13 @@ def run_string_experiment(
             "evaluation": {
                 "heldout": heldout_result.to_dict(),
                 "longer_strings": longer_result.to_dict(),
+                "composition": composition_result.to_dict(),
             },
             "measurement_overhead": {
                 "checkpoint_generation_calls": checkpoint_calls,
-                "final_evaluation_generation_calls": len(heldout) + len(longer),
+                "final_evaluation_generation_calls": (
+                    len(heldout) + len(longer) + len(composition)
+                ),
                 "checkpoint_seconds": checkpoint_seconds,
                 "final_evaluation_seconds": eval_seconds,
                 "regime_wall_seconds": perf_counter() - wall_started,

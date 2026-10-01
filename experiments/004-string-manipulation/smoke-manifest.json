@@ -36,5 +36,6 @@
     "5"
   ],
   "variants_per_failure": 2,
-  "holdout_modulus": 5
+  "holdout_modulus": 5,
+  "composition_evaluation_size": 24
 }

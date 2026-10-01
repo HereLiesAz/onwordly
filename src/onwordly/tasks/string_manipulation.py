@@ -44,12 +44,9 @@ class StringTask:
         return f"{self.operation}:{self.length}"
 
 
-def apply_string_operation(text: str, operation: StringOperation) -> str:
-    if not text:
-        raise ValueError("text cannot be empty")
+def _apply_string_operation_raw(text: str, operation: StringOperation) -> str:
     if operation == "remove_vowels":
-        result = "".join(char for char in text if char not in "AEIOU")
-        return result or "<EMPTY>"
+        return "".join(char for char in text if char not in "AEIOU")
     if operation == "take_even_indices":
         return text[::2]
     if operation == "reverse_pairs":
@@ -58,6 +55,13 @@ def apply_string_operation(text: str, operation: StringOperation) -> str:
     if operation == "duplicate_each":
         return "".join(char * 2 for char in text)
     raise ValueError(f"unsupported string operation: {operation}")
+
+
+def apply_string_operation(text: str, operation: StringOperation) -> str:
+    if not text:
+        raise ValueError("text cannot be empty")
+    result = _apply_string_operation_raw(text, operation)
+    return result or "<EMPTY>"
 
 
 def make_string_task(text: str, operation: StringOperation) -> StringTask:
@@ -93,6 +97,69 @@ def generate_string_task(
         raise ValueError("alphabet entries must be single ASCII alphanumeric characters")
     text = "".join(rng.choice(symbols) for _ in range(length))
     return make_string_task(text, operation)
+
+
+@dataclass(frozen=True, slots=True)
+class ComposedStringTask:
+    prompt: str
+    answer: str
+    first_operation: StringOperation
+    second_operation: StringOperation
+    length: int
+    text: str
+
+    @property
+    def target_text(self) -> str:
+        return self.answer
+
+    @property
+    def bucket_key(self) -> str:
+        return f"{self.first_operation}>{self.second_operation}:{self.length}"
+
+
+def make_composed_string_task(
+    text: str,
+    first_operation: StringOperation,
+    second_operation: StringOperation,
+) -> ComposedStringTask:
+    if first_operation == second_operation:
+        raise ValueError("composition operations must differ")
+    normalized = text.upper()
+    if not normalized or any(
+        not char.isalnum() or not char.isascii()
+        for char in normalized
+    ):
+        raise ValueError("text must contain only ASCII letters and digits")
+    intermediate = _apply_string_operation_raw(normalized, first_operation)
+    result = _apply_string_operation_raw(intermediate, second_operation)
+    answer = result or "<EMPTY>"
+    prompt = (
+        f"Transform {normalized} in two steps. First: {_RULES[first_operation]}. "
+        f"Second: {_RULES[second_operation]}. Return only the final transformed "
+        "string with no spaces or explanation. If the result is empty, return <EMPTY>."
+    )
+    return ComposedStringTask(
+        prompt=prompt,
+        answer=answer,
+        first_operation=first_operation,
+        second_operation=second_operation,
+        length=len(normalized),
+        text=normalized,
+    )
+
+
+def composed_string_partition(
+    task: ComposedStringTask,
+    *,
+    modulus: int = 5,
+) -> StringPartition:
+    if modulus < 2:
+        raise ValueError("modulus must be at least 2")
+    key = (
+        f"{task.first_operation}>{task.second_operation}:{task.text}"
+    ).encode("utf-8")
+    residue = int.from_bytes(blake2b(key, digest_size=8).digest(), "big") % modulus
+    return "eval" if residue == 0 else "train"
 
 
 def string_partition(

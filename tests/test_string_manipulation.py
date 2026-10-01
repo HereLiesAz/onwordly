@@ -5,6 +5,7 @@ from onwordly.datasets.string_manipulation import build_static_string_dataset
 from onwordly.tasks.string_manipulation import (
     apply_string_operation,
     generate_string_task,
+    make_composed_string_task,
     make_string_task,
     string_partition,
 )
@@ -59,3 +60,23 @@ def test_string_task_normalizes_input() -> None:
     task = make_string_task("ab12", "reverse_pairs")
     assert task.text == "AB12"
     assert task.answer == "BA21"
+
+
+def test_composed_string_task_applies_rules_in_order() -> None:
+    task = make_composed_string_task(
+        "ABCDE",
+        "remove_vowels",
+        "reverse_pairs",
+    )
+    assert task.answer == "CBD"
+    assert task.bucket_key == "remove_vowels>reverse_pairs:5"
+    assert verify_string_answer(task, "CBD")
+
+
+def test_composed_string_handles_empty_intermediate() -> None:
+    task = make_composed_string_task(
+        "AEIOU",
+        "remove_vowels",
+        "duplicate_each",
+    )
+    assert task.answer == "<EMPTY>"

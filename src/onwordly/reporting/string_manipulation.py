@@ -18,16 +18,18 @@ def render_string_result(path: str | Path) -> str:
             "",
             f"Runs: {aggregate['runs']}",
             "",
-            "| Regime | Held-out mean ± sd | Longer-string mean ± sd | Mean wall seconds |",
-            "| --- | ---: | ---: | ---: |",
+            "| Regime | Held-out mean ± sd | Longer-string mean ± sd | Composition mean ± sd | Mean wall seconds |",
+            "| --- | ---: | ---: | ---: | ---: |",
         ]
         for name in payload["regime_order"]:
             regime = aggregate["regimes"][name]
             heldout = regime["accuracy"]["heldout"]
             longer = regime["accuracy"]["longer_strings"]
+            composition = regime["accuracy"]["composition"]
             lines.append(
                 f"| {name} | {_pct(heldout['mean'])} ± {_pct(heldout['stddev'])} | "
                 f"{_pct(longer['mean'])} ± {_pct(longer['stddev'])} | "
+                f"{_pct(composition['mean'])} ± {_pct(composition['stddev'])} | "
                 f"{regime['regime_wall_seconds']['mean']:.2f} |"
             )
         return "\n".join(lines) + "\n"
@@ -35,14 +37,15 @@ def render_string_result(path: str | Path) -> str:
     lines = [
         "# Constrained string results",
         "",
-        "| Regime | Held-out | Longer strings | Train tokens | Examples |",
-        "| --- | ---: | ---: | ---: | ---: |",
+        "| Regime | Held-out | Longer strings | Composition | Train tokens | Examples |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name in payload["regime_order"]:
         regime = payload["regimes"][name]
         lines.append(
             f"| {name} | {_pct(regime['evaluation']['heldout']['accuracy'])} | "
             f"{_pct(regime['evaluation']['longer_strings']['accuracy'])} | "
+            f"{_pct(regime['evaluation']['composition']['accuracy'])} | "
             f"{regime['training']['training_tokens']} | "
             f"{regime['training']['examples_trained']} |"
         )

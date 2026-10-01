@@ -46,4 +46,8 @@ def test_string_experiment_runs(tmp_path) -> None:
     assert set(result["regimes"]) == {"static", "adaptive", "error-focused"}
     assert (tmp_path / "summary.json").exists()
     for regime in result["regimes"].values():
-        assert set(regime["evaluation"]) == {"heldout", "longer_strings"}
+        assert set(regime["evaluation"]) == {
+            "heldout",
+            "longer_strings",
+            "composition",
+        }

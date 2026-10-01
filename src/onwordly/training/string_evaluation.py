@@ -3,14 +3,23 @@ from __future__ import annotations
 from typing import Sequence
 
 from onwordly.models.base import ModelAdapter
-from onwordly.tasks.string_manipulation import StringTask
+from typing import Protocol
+
+
+class StringEvaluationTask(Protocol):
+    prompt: str
+    answer: str
+
+    @property
+    def bucket_key(self) -> str:
+        ...
 from onwordly.training.evaluation import EvaluationResult
 from onwordly.verifiers.string_manipulation import verify_string_answer
 
 
 def evaluate_string_tasks(
     adapter: ModelAdapter,
-    tasks: Sequence[StringTask],
+    tasks: Sequence[StringEvaluationTask],
 ) -> EvaluationResult:
     if not tasks:
         raise ValueError("evaluation set cannot be empty")

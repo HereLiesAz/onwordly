@@ -20,15 +20,15 @@ buckets, deterministic generation, and strict exact-answer verification.
 
 - adaptive and error-focused curricula;
 - equal-token static/adaptive/error-focused runner;
-- held-out and longer-string evaluation;
+- held-out, longer-string, and unseen two-operation composition evaluation;
 - full and smoke manifests;
 - repeated-seed suite;
 - Kaggle single/suite execution support.
 
 ## Next
 
-1. add operation-composition evaluation;
-2. run the smoke manifest;
+1. run the smoke manifest;
+2. inspect the new composition split for verifier/prompt pathologies;
 3. run one full seed if the smoke path is clean;
 4. only then launch repeated seeds.
 

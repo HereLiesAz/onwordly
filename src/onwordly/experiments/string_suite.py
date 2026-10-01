@@ -56,6 +56,7 @@ def run_string_suite(
     for regime_name in STRING_REGIMES:
         heldout = []
         longer = []
+        composition = []
         tokens = []
         examples = []
         seconds = []
@@ -63,6 +64,7 @@ def run_string_suite(
             regime = run["regimes"][regime_name]
             heldout.append(float(regime["evaluation"]["heldout"]["accuracy"]))
             longer.append(float(regime["evaluation"]["longer_strings"]["accuracy"]))
+            composition.append(float(regime["evaluation"]["composition"]["accuracy"]))
             tokens.append(float(regime["training"]["training_tokens"]))
             examples.append(float(regime["training"]["examples_trained"]))
             seconds.append(float(regime["measurement_overhead"]["regime_wall_seconds"]))
@@ -70,6 +72,7 @@ def run_string_suite(
             "accuracy": {
                 "heldout": _summary(heldout),
                 "longer_strings": _summary(longer),
+                "composition": _summary(composition),
             },
             "training_tokens": _summary(tokens),
             "examples_trained": _summary(examples),
