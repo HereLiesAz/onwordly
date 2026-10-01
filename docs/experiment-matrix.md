@@ -5,8 +5,8 @@ fixed, and what evidence it is allowed to support.
 
 | ID | Domain / question | Primary regimes | Exact evaluation | Execution state |
 | --- | --- | --- | --- | --- |
-| 001 | Arithmetic curriculum efficiency | static / adaptive / error-focused | held-out operands; prompt transfer only; joint operand+prompt transfer; longer digits | repeated-seed Kaggle suite running |
-| 002 | Arithmetic mechanism ablation | static / online-uniform / adaptive / error-focused-uniform / error-focused-adaptive | same arithmetic controls | single Kaggle ablation running; repeated suite gated |
+| 001 | Arithmetic curriculum efficiency | static / adaptive / error-focused | held-out operands; prompt transfer only; joint operand+prompt transfer; longer digits | transparent Kaggle suite run 9 queued; prior watcher canceled after failed GPU submission |
+| 002 | Arithmetic mechanism ablation | static / online-uniform / adaptive / error-focused-uniform / error-focused-adaptive | same arithmetic controls | transparent Kaggle ablation run 10 queued; prior watcher canceled after failed GPU submission; repeated suite gated |
 | 003 | Symbolic transformations | static / adaptive / error-focused | held-out sequences; longer sequences; unseen two-step composition | runner, smoke/full manifests, suite and Kaggle path prepared |
 | 004 | Constrained strings | static / adaptive / error-focused | held-out strings; longer strings | runner, smoke/full manifests, suite and Kaggle path prepared |
 | 005 | Stateful program execution | static / adaptive / error-focused | held-out programs; longer programs; withheld adjacent instruction transition | runner, smoke/full manifests, suite and Kaggle path prepared |
