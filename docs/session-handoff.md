@@ -61,7 +61,7 @@ The current canonical arithmetic runs are the independently isolated Kaggle jobs
 - Experiment 001 repeated-seed suite — central run `36857400628`;
 - Experiment 002 five-regime ablation — central run `36857267229`.
 
-Both are running on pinned target revisions, so continued development on `main` does not alter their code or cancel them.
+Both were submitted from pinned target revisions, so continued development on `main` does not alter their code or cancel them. GitHub currently shows both central jobs waiting on Kaggle, but that alone does **not** prove the Kaggle workers are actively executing. Treat them as submitted/polled until a Kaggle worker state or completed output is observed.
 
 ## Experiment 001 repeated-seed suite
 
@@ -128,12 +128,13 @@ The newer development commits are still queued for centralized CI behind the lon
 
 ## Exact next actions
 
-1. Keep Experiment 001 suite and Experiment 002 ablation running independently; never rewrite their pinned target revisions.
-2. Inspect and fix the newest centralized CI result as soon as it executes.
-3. Smoke-test Experiments 003–006 before any full new-domain spend.
-4. Add composition-specific evaluation to Experiments 004–006 where it measures a genuinely distinct generalization axis.
-5. CI-validate and smoke-test Experiment 007's common-prompt outcome-vs-trace ablation; do not give it repeated-seed compute until target-token/example accounting is inspected.
-6. Only after cross-domain results exist decide whether search, distillation, or multi-agent language games deserve the next compute budget.
+1. Keep Experiment 001 suite and Experiment 002 ablation isolated on their pinned target revisions; do not treat GitHub's polling step as proof that Kaggle compute is active.
+2. Inspect the Kaggle state/output as soon as the current pollers resolve. Future central Kaggle runs now expose explicit state transitions and fail bounded queue waits instead of silently looking alive for hours.
+3. Inspect and fix the newest centralized CI result as soon as it executes.
+4. Smoke-test Experiments 003–006 before any full new-domain spend.
+5. Add any remaining composition-specific evaluation only where it measures a genuinely distinct generalization axis.
+6. CI-validate and smoke-test Experiment 007's common-prompt outcome-vs-trace ablation; do not give it repeated-seed compute until target-token/example accounting is inspected.
+7. Only after cross-domain results exist decide whether search, distillation, or multi-agent language games deserve the next compute budget.
 
 ## Experiment map
 
