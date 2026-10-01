@@ -11,7 +11,7 @@ from onwordly.datasets.arithmetic import build_static_arithmetic_dataset, write_
 from onwordly.experiments.manifest import ArithmeticExperimentManifest
 from onwordly.models.base import ModelAdapter
 from onwordly.models.huggingface import HuggingFaceCausalLMAdapter
-from onwordly.training.evaluation import evaluate_arithmetic
+from onwordly.training.evaluation import EvaluationResult, evaluate_arithmetic
 from onwordly.training.harness import run_equal_token_training
 from onwordly.training.sources import (
     AdaptiveArithmeticSource,
@@ -35,7 +35,44 @@ def _adaptive_curriculum(manifest: ArithmeticExperimentManifest) -> AdaptiveArit
     return AdaptiveArithmeticCurriculum(
         operations=manifest.operations,
         digit_levels=manifest.digit_levels,
+        partition="train",
+        partition_modulus=manifest.holdout_modulus,
     )
+
+
+def _tokens_to_threshold(
+    checkpoints: tuple[dict[str, object], ...],
+) -> dict[str, int | None]:
+    thresholds = (0.70, 0.80, 0.90, 0.95)
+    result: dict[str, int | None] = {f"{threshold:.2f}": None for threshold in thresholds}
+
+    for checkpoint in checkpoints:
+        evaluation = checkpoint.get("evaluation")
+        if not isinstance(evaluation, dict):
+            continue
+        accuracy = evaluation.get("accuracy")
+        if not isinstance(accuracy, (int, float)):
+            continue
+        actual_tokens = checkpoint.get("actual_tokens")
+        if not isinstance(actual_tokens, int):
+            continue
+        for threshold in thresholds:
+            key = f"{threshold:.2f}"
+            if result[key] is None and accuracy >= threshold:
+                result[key] = actual_tokens
+    return result
+
+
+def _serialize_evaluations(
+    heldout: EvaluationResult,
+    withheld_prompts: EvaluationResult,
+    out_of_range: EvaluationResult,
+) -> dict[str, object]:
+    return {
+        "heldout": heldout.to_dict(),
+        "withheld_prompts": withheld_prompts.to_dict(),
+        "out_of_range": out_of_range.to_dict(),
+    }
 
 
 def run_experiment(
@@ -44,6 +81,7 @@ def run_experiment(
     output_dir: str | Path,
     create_adapter: Callable[[], ModelAdapter] | None = None,
 ) -> dict[str, object]:
+    manifest.validate()
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
 
@@ -52,15 +90,40 @@ def run_experiment(
         size=manifest.static_dataset_size,
         operations=manifest.operations,
         digit_levels=manifest.digit_levels,
+        partition="train",
+        partition_modulus=manifest.holdout_modulus,
     )
-    evaluation_tasks = build_static_arithmetic_dataset(
+    heldout_tasks = build_static_arithmetic_dataset(
         seed=manifest.evaluation_seed,
         size=manifest.evaluation_size,
         operations=manifest.operations,
         digit_levels=manifest.digit_levels,
+        partition="eval",
+        partition_modulus=manifest.holdout_modulus,
     )
+    withheld_prompt_tasks = build_static_arithmetic_dataset(
+        seed=manifest.evaluation_seed + 1,
+        size=manifest.generalization_size,
+        operations=manifest.operations,
+        digit_levels=manifest.digit_levels,
+        prompt_styles=manifest.withheld_prompt_styles,
+        partition="eval",
+        partition_modulus=manifest.holdout_modulus,
+    )
+    out_of_range_tasks = build_static_arithmetic_dataset(
+        seed=manifest.evaluation_seed + 2,
+        size=manifest.generalization_size,
+        operations=manifest.operations,
+        digit_levels=manifest.out_of_range_digit_levels,
+        partition="eval",
+        partition_modulus=manifest.holdout_modulus,
+    )
+    checkpoint_tasks = heldout_tasks[: manifest.checkpoint_evaluation_size]
+
     write_arithmetic_jsonl(static_tasks, output / "static-train.jsonl")
-    write_arithmetic_jsonl(evaluation_tasks, output / "evaluation.jsonl")
+    write_arithmetic_jsonl(heldout_tasks, output / "evaluation-heldout.jsonl")
+    write_arithmetic_jsonl(withheld_prompt_tasks, output / "evaluation-withheld-prompts.jsonl")
+    write_arithmetic_jsonl(out_of_range_tasks, output / "evaluation-out-of-range.jsonl")
 
     factory = create_adapter or _adapter_factory(manifest)
     regimes = (
@@ -82,17 +145,36 @@ def run_experiment(
 
     for regime_name, source_factory in regimes:
         adapter = factory()
+
+        def checkpoint_callback(
+            scheduled_tokens: int,
+            actual_tokens: int,
+            *,
+            _adapter: ModelAdapter = adapter,
+        ) -> dict[str, object]:
+            del scheduled_tokens, actual_tokens
+            return {"evaluation": evaluate_arithmetic(_adapter, checkpoint_tasks).to_dict()}
+
         training = run_equal_token_training(
             regime=regime_name,
             adapter=adapter,
             source=source_factory(),
             token_budget=manifest.token_budget,
             seed=manifest.training_seed,
+            checkpoint_interval_tokens=manifest.checkpoint_interval_tokens,
+            checkpoint_callback=checkpoint_callback,
         )
-        evaluation = evaluate_arithmetic(adapter, evaluation_tasks)
+
+        final_evaluations = _serialize_evaluations(
+            evaluate_arithmetic(adapter, heldout_tasks),
+            evaluate_arithmetic(adapter, withheld_prompt_tasks),
+            evaluate_arithmetic(adapter, out_of_range_tasks),
+        )
+
         regime_result = {
             "training": training.to_dict(),
-            "evaluation": evaluation.to_dict(),
+            "tokens_to_threshold": _tokens_to_threshold(training.checkpoints),
+            "evaluation": final_evaluations,
         }
         results["regimes"][regime_name] = regime_result
         with (output / f"{regime_name}.json").open("w", encoding="utf-8") as handle:

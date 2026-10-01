@@ -1,6 +1,10 @@
 from random import Random
 
-from onwordly.tasks.arithmetic import generate_arithmetic_task
+from onwordly.tasks.arithmetic import (
+    arithmetic_partition,
+    generate_arithmetic_task,
+    make_arithmetic_task,
+)
 from onwordly.verifiers.arithmetic import parse_integer_answer, verify_arithmetic_answer
 
 
@@ -28,3 +32,18 @@ def test_verifier_is_strict() -> None:
     assert not verify_arithmetic_answer(task, f"The answer is {task.answer}.")
     assert parse_integer_answer("  -12  ") == -12
     assert parse_integer_answer("12.0") is None
+
+
+def test_prompt_styles_preserve_answer() -> None:
+    prompts = {
+        make_arithmetic_task(17, 9, "add", prompt_style=style).prompt
+        for style in ("canonical", "question", "words", "expression")
+    }
+    assert len(prompts) == 4
+    for style in ("canonical", "question", "words", "expression"):
+        assert make_arithmetic_task(17, 9, "add", prompt_style=style).answer == 26
+
+
+def test_commutative_reverse_cannot_cross_partition() -> None:
+    assert arithmetic_partition(17, 9, "add") == arithmetic_partition(9, 17, "add")
+    assert arithmetic_partition(17, 9, "multiply") == arithmetic_partition(9, 17, "multiply")

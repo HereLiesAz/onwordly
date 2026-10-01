@@ -4,7 +4,13 @@ from dataclasses import dataclass
 from random import Random
 from typing import Iterable
 
-from onwordly.tasks.arithmetic import ArithmeticTask, Operation, generate_arithmetic_task
+from onwordly.tasks.arithmetic import (
+    ArithmeticPartition,
+    ArithmeticTask,
+    Operation,
+    generate_arithmetic_task,
+    task_in_partition,
+)
 
 
 @dataclass(slots=True)
@@ -36,15 +42,21 @@ class AdaptiveArithmeticCurriculum:
         minimum_weight: float = 0.05,
         prior_attempts: int = 4,
         prior_correct: int = 2,
+        partition: ArithmeticPartition | None = None,
+        partition_modulus: int = 5,
     ) -> None:
         if minimum_weight <= 0:
             raise ValueError("minimum_weight must be positive")
         if prior_attempts < 0 or prior_correct < 0 or prior_correct > prior_attempts:
             raise ValueError("invalid prior")
+        if partition_modulus < 2:
+            raise ValueError("partition_modulus must be at least 2")
 
         self.minimum_weight = minimum_weight
         self.prior_attempts = prior_attempts
         self.prior_correct = prior_correct
+        self.partition = partition
+        self.partition_modulus = partition_modulus
         self.buckets = tuple(
             Bucket(operation=operation, digits=digits)
             for operation in operations
@@ -72,9 +84,20 @@ class AdaptiveArithmeticCurriculum:
         weights = [self.weight(bucket) for bucket in self.buckets]
         return rng.choices(self.buckets, weights=weights, k=1)[0]
 
+    def accepts(self, task: ArithmeticTask) -> bool:
+        return task_in_partition(
+            task,
+            self.partition,
+            modulus=self.partition_modulus,
+        )
+
     def generate(self, rng: Random) -> ArithmeticTask:
-        bucket = self.choose_bucket(rng)
-        return generate_arithmetic_task(rng, bucket.operation, bucket.digits)
+        for _ in range(10_000):
+            bucket = self.choose_bucket(rng)
+            task = generate_arithmetic_task(rng, bucket.operation, bucket.digits)
+            if self.accepts(task):
+                return task
+        raise RuntimeError("could not generate a task in the curriculum partition")
 
     def update(self, task: ArithmeticTask, correct: bool) -> None:
         bucket = Bucket(task.operation, task.digits)

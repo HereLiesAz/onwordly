@@ -11,6 +11,7 @@ from onwordly.training.sources import ArithmeticTaskSource
 from onwordly.verifiers.arithmetic import verify_arithmetic_answer
 
 Verifier = Callable[[ArithmeticTask, str], bool]
+CheckpointCallback = Callable[[int, int], dict[str, object]]
 
 
 @dataclass(slots=True)
@@ -34,6 +35,7 @@ class TrainingRunResult:
     correct_before_train: int
     mean_loss: float | None
     bucket_stats: dict[str, dict[str, float | int]] = field(default_factory=dict)
+    checkpoints: tuple[dict[str, object], ...] = ()
 
     @property
     def pretrain_accuracy(self) -> float:
@@ -55,15 +57,21 @@ def run_equal_token_training(
     token_budget: int,
     seed: int,
     verifier: Verifier = verify_arithmetic_answer,
+    checkpoint_interval_tokens: int | None = None,
+    checkpoint_callback: CheckpointCallback | None = None,
 ) -> TrainingRunResult:
     """Train without ever exceeding the requested model-token budget.
 
     Every regime performs the same pre-update generation and verification step.
-    This keeps observation overhead structurally comparable while adaptive sources use
-    that observation to choose future tasks.
+    Adaptive sources may use that observation to choose future tasks. Optional
+    checkpoint evaluation is read-only: its results are never fed to the source.
     """
     if token_budget < 1:
         raise ValueError("token_budget must be at least 1")
+    if checkpoint_callback is not None and (
+        checkpoint_interval_tokens is None or checkpoint_interval_tokens < 1
+    ):
+        raise ValueError("checkpoint callback requires a positive checkpoint interval")
 
     rng = Random(seed)
     training_tokens = 0
@@ -73,6 +81,18 @@ def run_equal_token_training(
     correct_before_train = 0
     losses: list[float] = []
     buckets: dict[str, BucketRunStats] = {}
+    checkpoints: list[dict[str, object]] = []
+
+    next_checkpoint = checkpoint_interval_tokens
+    if checkpoint_callback is not None:
+        baseline = checkpoint_callback(0, 0)
+        checkpoints.append(
+            {
+                "scheduled_tokens": 0,
+                "actual_tokens": 0,
+                **baseline,
+            }
+        )
 
     while True:
         task = source.next_task(rng)
@@ -106,6 +126,35 @@ def run_equal_token_training(
         examples_trained += 1
         losses.append(step.loss)
 
+        if (
+            checkpoint_callback is not None
+            and next_checkpoint is not None
+            and training_tokens >= next_checkpoint
+        ):
+            scheduled = next_checkpoint
+            while next_checkpoint <= training_tokens:
+                next_checkpoint += checkpoint_interval_tokens  # type: ignore[operator]
+            metrics = checkpoint_callback(scheduled, training_tokens)
+            checkpoints.append(
+                {
+                    "scheduled_tokens": scheduled,
+                    "actual_tokens": training_tokens,
+                    **metrics,
+                }
+            )
+
+    if checkpoint_callback is not None:
+        last_actual = int(checkpoints[-1]["actual_tokens"]) if checkpoints else -1
+        if last_actual != training_tokens:
+            metrics = checkpoint_callback(training_tokens, training_tokens)
+            checkpoints.append(
+                {
+                    "scheduled_tokens": training_tokens,
+                    "actual_tokens": training_tokens,
+                    **metrics,
+                }
+            )
+
     bucket_payload = {
         key: {
             "attempts": value.attempts,
@@ -125,4 +174,5 @@ def run_equal_token_training(
         correct_before_train=correct_before_train,
         mean_loss=fmean(losses) if losses else None,
         bucket_stats=bucket_payload,
+        checkpoints=tuple(checkpoints),
     )

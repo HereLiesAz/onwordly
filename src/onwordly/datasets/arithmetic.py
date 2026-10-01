@@ -6,7 +6,14 @@ from pathlib import Path
 from random import Random
 from typing import Iterable, Sequence
 
-from onwordly.tasks.arithmetic import ArithmeticTask, Operation, generate_arithmetic_task
+from onwordly.tasks.arithmetic import (
+    ArithmeticPartition,
+    ArithmeticTask,
+    Operation,
+    PromptStyle,
+    generate_arithmetic_task,
+    task_in_partition,
+)
 
 
 def build_static_arithmetic_dataset(
@@ -15,23 +22,48 @@ def build_static_arithmetic_dataset(
     size: int,
     operations: Iterable[Operation] = ("add", "subtract", "multiply"),
     digit_levels: Iterable[int] = (1, 2, 3),
+    prompt_styles: Iterable[PromptStyle] = ("canonical",),
+    partition: ArithmeticPartition | None = None,
+    partition_modulus: int = 5,
     shuffle: bool = True,
 ) -> tuple[ArithmeticTask, ...]:
     """Build a deterministic, approximately balanced frozen arithmetic dataset."""
     if size < 1:
         raise ValueError("size must be at least 1")
 
-    buckets = tuple((operation, digits) for operation in operations for digits in digit_levels)
+    buckets = tuple(
+        (operation, digits, prompt_style)
+        for operation in operations
+        for digits in digit_levels
+        for prompt_style in prompt_styles
+    )
     if not buckets:
-        raise ValueError("at least one operation/difficulty bucket is required")
-    if any(digits < 1 for _, digits in buckets):
+        raise ValueError("at least one operation/difficulty/style bucket is required")
+    if any(digits < 1 for _, digits, _ in buckets):
         raise ValueError("digit levels must be at least 1")
 
     rng = Random(seed)
-    tasks = [
-        generate_arithmetic_task(rng, *buckets[index % len(buckets)])
-        for index in range(size)
-    ]
+    tasks: list[ArithmeticTask] = []
+    max_attempts_per_task = 10_000
+
+    for index in range(size):
+        operation, digits, prompt_style = buckets[index % len(buckets)]
+        for _ in range(max_attempts_per_task):
+            task = generate_arithmetic_task(
+                rng,
+                operation,
+                digits,
+                prompt_style=prompt_style,
+            )
+            if task_in_partition(task, partition, modulus=partition_modulus):
+                tasks.append(task)
+                break
+        else:
+            raise RuntimeError(
+                "could not generate a task in the requested partition; "
+                "check the bucket and partition settings"
+            )
+
     if shuffle:
         rng.shuffle(tasks)
     return tuple(tasks)

@@ -25,16 +25,22 @@ def test_experiment_serializes_all_three_regimes(tmp_path) -> None:
     manifest = ArithmeticExperimentManifest(
         model_name="fake",
         token_budget=25,
-        static_dataset_size=9,
-        evaluation_size=9,
+        static_dataset_size=12,
+        evaluation_size=12,
+        generalization_size=9,
+        checkpoint_evaluation_size=6,
+        checkpoint_interval_tokens=10,
         dataset_seed=1,
         evaluation_seed=2,
         training_seed=3,
         learning_rate=2e-5,
         max_new_tokens=4,
         digit_levels=(1,),
+        out_of_range_digit_levels=(2,),
         operations=("add", "subtract", "multiply"),
+        withheld_prompt_styles=("question", "words", "expression"),
         variants_per_failure=2,
+        holdout_modulus=5,
     )
 
     result = run_experiment(
@@ -46,5 +52,18 @@ def test_experiment_serializes_all_three_regimes(tmp_path) -> None:
     assert set(result["regimes"]) == {"static", "adaptive", "error-focused"}
     assert (tmp_path / "summary.json").exists()
     assert (tmp_path / "static-train.jsonl").exists()
+    assert (tmp_path / "evaluation-heldout.jsonl").exists()
+    assert (tmp_path / "evaluation-withheld-prompts.jsonl").exists()
+    assert (tmp_path / "evaluation-out-of-range.jsonl").exists()
+
+    for regime in result["regimes"].values():
+        assert set(regime["evaluation"]) == {
+            "heldout",
+            "withheld_prompts",
+            "out_of_range",
+        }
+        assert len(regime["training"]["checkpoints"]) >= 2
+        assert set(regime["tokens_to_threshold"]) == {"0.70", "0.80", "0.90", "0.95"}
+
     saved = json.loads((tmp_path / "summary.json").read_text())
     assert saved["manifest"]["token_budget"] == 25

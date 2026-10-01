@@ -5,7 +5,7 @@ from random import Random
 from typing import Protocol, Sequence
 
 from onwordly.curricula.adaptive import AdaptiveArithmeticCurriculum
-from onwordly.tasks.arithmetic import ArithmeticTask, operand_bounds, make_arithmetic_task
+from onwordly.tasks.arithmetic import ArithmeticTask, make_arithmetic_task, operand_bounds
 
 
 class ArithmeticTaskSource(Protocol):
@@ -77,8 +77,7 @@ class ErrorFocusedArithmeticSource(AdaptiveArithmeticSource):
             return
         self.pending.extend(self._nearby_variants(task)[: self.variants_per_failure])
 
-    @staticmethod
-    def _nearby_variants(task: ArithmeticTask) -> list[ArithmeticTask]:
+    def _nearby_variants(self, task: ArithmeticTask) -> list[ArithmeticTask]:
         low, high = operand_bounds(task.digits)
         offsets = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1))
         variants: list[ArithmeticTask] = []
@@ -89,13 +88,16 @@ class ErrorFocusedArithmeticSource(AdaptiveArithmeticSource):
             right = task.right + right_delta
             if not (low <= left <= high and low <= right <= high):
                 continue
-            if task.operation == "subtract" and right > left:
-                left, right = right, left
-            key = (left, right)
+            candidate = make_arithmetic_task(
+                left,
+                right,
+                task.operation,
+                prompt_style=task.prompt_style,
+            )
+            key = (candidate.left, candidate.right)
             if key in seen:
                 continue
             seen.add(key)
-            candidate = make_arithmetic_task(left, right, task.operation)
-            if candidate.digits == task.digits:
+            if candidate.digits == task.digits and self.curriculum.accepts(candidate):
                 variants.append(candidate)
         return variants

@@ -42,3 +42,28 @@ def test_equal_token_harness_never_overshoots() -> None:
     assert result.generation_calls == 2
     assert result.verifier_calls == 2
     assert result.training_tokens <= result.token_budget
+
+
+def test_checkpoints_include_baseline_and_final_state() -> None:
+    source = StaticArithmeticSource((make_arithmetic_task(2, 3, "add"),))
+    adapter = FakeAdapter(tokens_per_example=7)
+    calls: list[tuple[int, int]] = []
+
+    def checkpoint(scheduled: int, actual: int) -> dict[str, object]:
+        calls.append((scheduled, actual))
+        return {"evaluation": {"accuracy": actual / 20}}
+
+    result = run_equal_token_training(
+        regime="test",
+        adapter=adapter,
+        source=source,
+        token_budget=20,
+        seed=1,
+        checkpoint_interval_tokens=10,
+        checkpoint_callback=checkpoint,
+    )
+
+    assert calls == [(0, 0), (10, 14)]
+    assert len(result.checkpoints) == 2
+    assert result.checkpoints[0]["actual_tokens"] == 0
+    assert result.checkpoints[-1]["actual_tokens"] == 14
