@@ -34,6 +34,14 @@ an equal-token runner, repeated-seed aggregation, and a Kaggle execution path.
 
 See [experiments/004-string-manipulation](experiments/004-string-manipulation/README.md).
 
+## Experiment 005 — simple program execution substrate
+
+A tiny accumulator-machine DSL now provides another exact-verification domain,
+with deterministic program generation, interpretation, stable partitioning, and
+strict answer verification.
+
+See [experiments/005-program-execution](experiments/005-program-execution/README.md).
+
 ## Experiment 002 — prepared ablation
 
 The next experiment is already scaffolded so we do not have to invent an explanation after seeing Experiment 001.

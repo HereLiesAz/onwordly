@@ -54,7 +54,7 @@ Initial domains:
 - integer arithmetic — training harness and live experiments implemented;
 - symbolic transformations — deterministic generator/verifier substrate implemented;
 - constrained string manipulation — deterministic generator/verifier substrate implemented;
-- simple program execution;
+- simple program execution — deterministic DSL/interpreter substrate implemented;
 - formal logic.
 
 ### Phase 1 — curriculum efficiency
