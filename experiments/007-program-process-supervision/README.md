@@ -34,7 +34,12 @@ are worth their extra target tokens and training cost.
 - deterministic step-aligned trace target;
 - strict comma-separated trace parser/verifier;
 - trace task contract compatible with the generalized training harness;
-- tests for alignment, missing steps, formatting, and final state.
+- tests for alignment, missing steps, formatting, and final state;
+- exact training-token utilization and examples-per-budget accounting;
+- first-pass token-cost profiles for both supervision targets;
+- explicit trace/outcome exposure ratios;
+- Markdown result reporting;
+- Kaggle single-run execution support, with repeated-seed mode deliberately gated.
 
 ## Prepared comparison
 
@@ -53,8 +58,9 @@ A full and smoke manifest are present. Before any full run:
 
 1. let CI validate the scaffold;
 2. run the smoke manifest;
-3. inspect actual target-token/example counts;
-4. add a repeated-seed suite only if the comparison behaves sanely.
+3. inspect actual target-token/example counts and the trace/outcome exposure ratio;
+4. render the result report;
+5. add a repeated-seed suite only if the comparison behaves sanely.
 
 No chain-of-thought data is required; the trace is the executable machine state,
 not an unconstrained natural-language rationale.
