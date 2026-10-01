@@ -5,17 +5,17 @@
 # central-run-tracker: HereLiesAz/workflows
 name: Kaggle Experiment 001
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.kaggle-run'
   workflow_dispatch:
+
+# Temporarily disabled: Kaggle execution is cancelled.
+# Manual dispatch remains available for an intentional restart later.
 permissions:
   actions: read
   contents: read
   statuses: read
 jobs:
   central:
+    if: ${{ false }}
     name: Start
     runs-on: ubuntu-latest
     timeout-minutes: 100
