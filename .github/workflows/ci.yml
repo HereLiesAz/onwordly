@@ -5,14 +5,15 @@
 # central-run-tracker: HereLiesAz/workflows
 name: CI
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
 permissions:
   actions: read
   contents: read
   statuses: read
 jobs:
   central:
-    if: ${{ false }}
     name: Start
     runs-on: ubuntu-latest
     timeout-minutes: 100

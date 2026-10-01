@@ -5,6 +5,10 @@
 # central-run-tracker: HereLiesAz/workflows
 name: Experiment 001
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.experiment-run'
   workflow_dispatch:
 permissions:
   actions: read
@@ -12,7 +16,6 @@ permissions:
   statuses: read
 jobs:
   central:
-    if: ${{ false }}
     name: Start
     runs-on: ubuntu-latest
     timeout-minutes: 100
