@@ -8,6 +8,7 @@ from onwordly.models.base import TrainStepMetrics
 class TinyLearningAdapter:
     def __init__(self) -> None:
         self.answers: dict[str, str] = {}
+        self.closed = False
 
     def generate(self, prompt: str) -> str:
         return self.answers.get(prompt, "0")
@@ -19,6 +20,18 @@ class TinyLearningAdapter:
     def train_example(self, prompt: str, target: str) -> TrainStepMetrics:
         self.answers[prompt] = target
         return TrainStepMetrics(loss=0.5, tokens=5)
+
+    def synchronize(self) -> None:
+        pass
+
+    def reset_peak_memory_stats(self) -> None:
+        pass
+
+    def peak_memory_bytes(self) -> int:
+        return 1024
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def test_experiment_serializes_all_three_regimes(tmp_path) -> None:
@@ -66,6 +79,9 @@ def test_experiment_serializes_all_three_regimes(tmp_path) -> None:
         }
         assert len(regime["training"]["checkpoints"]) >= 2
         assert set(regime["tokens_to_threshold"]) == {"0.70", "0.80", "0.90", "0.95"}
+        assert regime["model"]["peak_memory_bytes"] == 1024
+        assert regime["measurement_overhead"]["regime_wall_seconds"] >= 0
+        assert "capability_gain_per_million_training_tokens" in regime["measurement_overhead"]
 
     saved = json.loads((tmp_path / "summary.json").read_text())
     assert saved["manifest"]["token_budget"] == 25

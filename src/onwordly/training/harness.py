@@ -15,6 +15,12 @@ Verifier = Callable[[ArithmeticTask, str], bool]
 CheckpointCallback = Callable[[int, int], dict[str, object]]
 
 
+def _synchronize_adapter(adapter: ModelAdapter) -> None:
+    synchronize = getattr(adapter, "synchronize", None)
+    if callable(synchronize):
+        synchronize()
+
+
 @dataclass(slots=True)
 class BucketRunStats:
     attempts: int = 0
@@ -106,6 +112,7 @@ def run_equal_token_training(
         if training_tokens + planned_tokens > token_budget:
             break
 
+        _synchronize_adapter(adapter)
         started = perf_counter()
         response = adapter.generate(task.prompt)
         generation_calls += 1
@@ -125,6 +132,7 @@ def run_equal_token_training(
                 "adapter token accounting changed between planning and training: "
                 f"planned={planned_tokens}, actual={step.tokens}"
             )
+        _synchronize_adapter(adapter)
         training_core_seconds += perf_counter() - started
 
         training_tokens += step.tokens

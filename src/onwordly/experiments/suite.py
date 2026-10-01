@@ -47,6 +47,10 @@ def aggregate_suite(run_results: list[dict[str, object]]) -> dict[str, object]:
         examples_trained: list[float] = []
         total_generation_calls: list[float] = []
         training_seconds: list[float] = []
+        regime_wall_seconds: list[float] = []
+        model_load_seconds: list[float] = []
+        peak_memory_bytes: list[float] = []
+        capability_gain_per_million_tokens: list[float] = []
         threshold_values: dict[str, list[float]] = {
             "0.70": [],
             "0.80": [],
@@ -69,6 +73,17 @@ def aggregate_suite(run_results: list[dict[str, object]]) -> dict[str, object]:
             total_generation_calls.append(
                 float(overhead["total_generation_calls_including_evaluation"])
             )
+            if overhead.get("regime_wall_seconds") is not None:
+                regime_wall_seconds.append(float(overhead["regime_wall_seconds"]))
+            if overhead.get("model_load_seconds") is not None:
+                model_load_seconds.append(float(overhead["model_load_seconds"]))
+            if overhead.get("capability_gain_per_million_training_tokens") is not None:
+                capability_gain_per_million_tokens.append(
+                    float(overhead["capability_gain_per_million_training_tokens"])
+                )
+            model = regime.get("model", {})
+            if model.get("peak_memory_bytes") is not None:
+                peak_memory_bytes.append(float(model["peak_memory_bytes"]))
 
             tokens_to_threshold = regime["tokens_to_threshold"]
             for threshold, value in tokens_to_threshold.items():
@@ -91,6 +106,20 @@ def aggregate_suite(run_results: list[dict[str, object]]) -> dict[str, object]:
             "training_tokens": _number_summary(training_tokens),
             "examples_trained": _number_summary(examples_trained),
             "training_core_seconds": _number_summary(training_seconds),
+            "regime_wall_seconds": (
+                _number_summary(regime_wall_seconds) if regime_wall_seconds else None
+            ),
+            "model_load_seconds": (
+                _number_summary(model_load_seconds) if model_load_seconds else None
+            ),
+            "peak_memory_bytes": (
+                _number_summary(peak_memory_bytes) if peak_memory_bytes else None
+            ),
+            "capability_gain_per_million_training_tokens": (
+                _number_summary(capability_gain_per_million_tokens)
+                if capability_gain_per_million_tokens
+                else None
+            ),
             "total_generation_calls_including_evaluation": _number_summary(
                 total_generation_calls
             ),

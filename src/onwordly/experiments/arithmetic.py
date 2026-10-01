@@ -37,6 +37,51 @@ ABLATION_REGIMES: tuple[str, ...] = (
 )
 
 
+def _synchronize_adapter(adapter: ModelAdapter) -> None:
+    synchronize = getattr(adapter, "synchronize", None)
+    if callable(synchronize):
+        synchronize()
+
+
+def _reset_peak_memory(adapter: ModelAdapter) -> None:
+    reset = getattr(adapter, "reset_peak_memory_stats", None)
+    if callable(reset):
+        reset()
+
+
+def _peak_memory_bytes(adapter: ModelAdapter) -> int | None:
+    read = getattr(adapter, "peak_memory_bytes", None)
+    if not callable(read):
+        return None
+    value = read()
+    return int(value) if value is not None else None
+
+
+def _close_adapter(adapter: ModelAdapter) -> None:
+    close = getattr(adapter, "close", None)
+    if callable(close):
+        close()
+
+
+def _capability_gain_per_million_tokens(
+    checkpoints: tuple[dict[str, object], ...],
+    training_tokens: int,
+) -> float | None:
+    if training_tokens <= 0 or len(checkpoints) < 2:
+        return None
+    first = checkpoints[0].get("evaluation")
+    last = checkpoints[-1].get("evaluation")
+    if not isinstance(first, dict) or not isinstance(last, dict):
+        return None
+    first_accuracy = first.get("accuracy")
+    last_accuracy = last.get("accuracy")
+    if not isinstance(first_accuracy, (int, float)) or not isinstance(
+        last_accuracy, (int, float)
+    ):
+        return None
+    return (float(last_accuracy) - float(first_accuracy)) * 1_000_000 / training_tokens
+
+
 def _adapter_factory(manifest: ArithmeticExperimentManifest) -> Callable[[], ModelAdapter]:
     def create() -> ModelAdapter:
         return HuggingFaceCausalLMAdapter(
@@ -211,7 +256,12 @@ def run_experiment(
     }
 
     for regime_name in regime_names:
+        regime_started = perf_counter()
+        model_load_started = perf_counter()
         adapter = factory()
+        _synchronize_adapter(adapter)
+        model_load_seconds = perf_counter() - model_load_started
+        _reset_peak_memory(adapter)
         checkpoint_generation_calls = 0
         checkpoint_seconds = 0.0
 
@@ -223,8 +273,10 @@ def run_experiment(
         ) -> dict[str, object]:
             nonlocal checkpoint_generation_calls, checkpoint_seconds
             del scheduled_tokens, actual_tokens
+            _synchronize_adapter(_adapter)
             started = perf_counter()
             evaluation = evaluate_arithmetic(_adapter, checkpoint_tasks)
+            _synchronize_adapter(_adapter)
             checkpoint_seconds += perf_counter() - started
             checkpoint_generation_calls += len(checkpoint_tasks)
             return {"evaluation": evaluation.to_dict()}
@@ -239,11 +291,13 @@ def run_experiment(
             checkpoint_callback=checkpoint_callback,
         )
 
+        _synchronize_adapter(adapter)
         started = perf_counter()
         heldout = evaluate_arithmetic(adapter, heldout_tasks)
         prompt_transfer = evaluate_arithmetic(adapter, prompt_transfer_tasks)
         withheld = evaluate_arithmetic(adapter, withheld_prompt_tasks)
         out_of_range = evaluate_arithmetic(adapter, out_of_range_tasks)
+        _synchronize_adapter(adapter)
         final_evaluation_seconds = perf_counter() - started
         final_evaluation_calls = (
             len(heldout_tasks)
@@ -253,10 +307,18 @@ def run_experiment(
         )
         total_evaluation_calls = checkpoint_generation_calls + final_evaluation_calls
 
+        peak_memory_bytes = _peak_memory_bytes(adapter)
+        regime_wall_seconds = perf_counter() - regime_started
+        capability_gain = _capability_gain_per_million_tokens(
+            training.checkpoints,
+            training.training_tokens,
+        )
+
         regime_result = {
             "model": {
                 "parameter_count": getattr(adapter, "parameter_count", None),
                 "device": getattr(adapter, "device_name", None),
+                "peak_memory_bytes": peak_memory_bytes,
             },
             "training": training.to_dict(),
             "tokens_to_threshold": _tokens_to_threshold(training.checkpoints),
@@ -276,12 +338,16 @@ def run_experiment(
                 "total_generation_calls_including_evaluation": (
                     training.generation_calls + total_evaluation_calls
                 ),
+                "model_load_seconds": model_load_seconds,
+                "regime_wall_seconds": regime_wall_seconds,
+                "capability_gain_per_million_training_tokens": capability_gain,
             },
         }
         results["regimes"][regime_name] = regime_result
         with (output / f"{regime_name}.json").open("w", encoding="utf-8") as handle:
             json.dump(regime_result, handle, indent=2, sort_keys=True)
             handle.write("\n")
+        _close_adapter(adapter)
         del adapter
 
     with (output / "summary.json").open("w", encoding="utf-8") as handle:

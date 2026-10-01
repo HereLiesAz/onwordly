@@ -63,3 +63,5 @@ def test_suite_aggregates_repeated_runs(tmp_path) -> None:
     assert (tmp_path / "seed-4" / "summary.json").exists()
     for regime in result["aggregate"]["regimes"].values():
         assert "prompt_transfer_only" in regime["accuracy"]
+        assert regime["regime_wall_seconds"] is not None
+        assert "capability_gain_per_million_training_tokens" in regime

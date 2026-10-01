@@ -120,3 +120,40 @@ class HuggingFaceCausalLMAdapter:
         self.optimizer.step()
 
         return TrainStepMetrics(loss=float(loss.detach().cpu()), tokens=len(all_ids))
+
+    def synchronize(self) -> None:
+        """Wait for queued accelerator work so wall-clock measurements are honest."""
+        torch = self.torch
+        if self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)
+        elif self.device.type == "mps" and hasattr(torch, "mps"):
+            synchronize = getattr(torch.mps, "synchronize", None)
+            if callable(synchronize):
+                synchronize()
+
+    def reset_peak_memory_stats(self) -> None:
+        if self.device.type == "cuda":
+            self.torch.cuda.reset_peak_memory_stats(self.device)
+
+    def peak_memory_bytes(self) -> int | None:
+        if self.device.type == "cuda":
+            self.synchronize()
+            return int(self.torch.cuda.max_memory_allocated(self.device))
+        return None
+
+    def close(self) -> None:
+        """Release model/optimizer state between regimes when the backend supports it."""
+        import gc
+
+        self.synchronize()
+        if hasattr(self, "optimizer"):
+            del self.optimizer
+        if hasattr(self, "model"):
+            del self.model
+        gc.collect()
+        if self.device.type == "cuda":
+            self.torch.cuda.empty_cache()
+        elif self.device.type == "mps" and hasattr(self.torch, "mps"):
+            empty_cache = getattr(self.torch.mps, "empty_cache", None)
+            if callable(empty_cache):
+                empty_cache()

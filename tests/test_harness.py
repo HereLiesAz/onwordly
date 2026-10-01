@@ -67,3 +67,28 @@ def test_checkpoints_include_baseline_and_final_state() -> None:
     assert len(result.checkpoints) == 2
     assert result.checkpoints[0]["actual_tokens"] == 0
     assert result.checkpoints[-1]["actual_tokens"] == 14
+
+
+class SynchronizedAdapter(FakeAdapter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.sync_calls = 0
+
+    def synchronize(self) -> None:
+        self.sync_calls += 1
+
+
+def test_harness_synchronizes_optional_accelerator_timing() -> None:
+    adapter = SynchronizedAdapter()
+    source = StaticArithmeticSource(
+        [make_arithmetic_task(2, 3, "add")]
+    )
+    result = run_equal_token_training(
+        regime="sync",
+        adapter=adapter,
+        source=source,
+        token_budget=10,
+        seed=1,
+    )
+    assert result.examples_trained > 0
+    assert adapter.sync_calls >= result.examples_trained * 2

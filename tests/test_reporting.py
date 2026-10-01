@@ -20,7 +20,10 @@ def test_render_single_run(tmp_path) -> None:
                 },
                 "measurement_overhead": {
                     "total_generation_calls_including_evaluation": 50,
+                    "regime_wall_seconds": 3.5,
+                    "capability_gain_per_million_training_tokens": 12.5,
                 },
+                "model": {"peak_memory_bytes": 1073741824},
                 "tokens_to_threshold": {
                     "0.70": None,
                     "0.80": None,
@@ -51,6 +54,9 @@ def test_render_suite(tmp_path) -> None:
         "examples_trained": {"mean": 5.0},
         "total_generation_calls_including_evaluation": {"mean": 50.0},
         "training_core_seconds": {"mean": 2.0},
+        "regime_wall_seconds": {"mean": 3.0},
+        "peak_memory_bytes": {"mean": 1073741824.0},
+        "capability_gain_per_million_training_tokens": {"mean": 12.5},
     }
     payload = {
         "regime_order": ["static", "adaptive", "error-focused"],

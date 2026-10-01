@@ -59,8 +59,26 @@ def render_single_run(summary: dict[str, Any]) -> str:
     title = "# Arithmetic experiment results"
     first_regime = summary["regimes"][_regime_order(summary)[0]]
     split_order = _evaluation_split_order(first_regime["evaluation"])
-    headers = ["Regime", *(_split_label(split) for split in split_order), "Train tokens", "Examples", "Total generation calls"]
-    aligns = ["---", *("---:" for _ in split_order), "---:", "---:", "---:"]
+    headers = [
+        "Regime",
+        *(_split_label(split) for split in split_order),
+        "Train tokens",
+        "Examples",
+        "Total generation calls",
+        "Wall seconds",
+        "Peak GiB",
+        "Δ accuracy / 1M train tokens",
+    ]
+    aligns = [
+        "---",
+        *("---:" for _ in split_order),
+        "---:",
+        "---:",
+        "---:",
+        "---:",
+        "---:",
+        "---:",
+    ]
     lines = [
         title,
         "",
@@ -77,11 +95,16 @@ def render_single_run(summary: dict[str, Any]) -> str:
         overhead = regime["measurement_overhead"]
         cells = [regime_name]
         cells.extend(_pct(evaluation[split]["accuracy"]) for split in split_order)
+        peak_memory = regime.get("model", {}).get("peak_memory_bytes")
+        peak_gib = None if peak_memory is None else float(peak_memory) / (1024**3)
         cells.extend(
             (
                 _num(training["training_tokens"]),
                 _num(training["examples_trained"]),
                 _num(overhead["total_generation_calls_including_evaluation"]),
+                _num(overhead.get("regime_wall_seconds")),
+                _num(peak_gib),
+                _num(overhead.get("capability_gain_per_million_training_tokens")),
             )
         )
         lines.append("| " + " | ".join(cells) + " |")
@@ -161,8 +184,8 @@ def render_suite(aggregate_payload: dict[str, Any]) -> str:
             "",
             "## Resource use",
             "",
-            "| Regime | Mean train tokens | Mean examples | Mean total generation calls | Mean core seconds |",
-            "| --- | ---: | ---: | ---: | ---: |",
+            "| Regime | Mean train tokens | Mean examples | Mean total generation calls | Mean core seconds | Mean wall seconds | Mean peak GiB | Mean Δ accuracy / 1M tokens |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
     )
 
@@ -177,6 +200,21 @@ def render_suite(aggregate_payload: dict[str, Any]) -> str:
                     _num(regime["examples_trained"]["mean"]),
                     _num(regime["total_generation_calls_including_evaluation"]["mean"]),
                     _num(regime["training_core_seconds"]["mean"]),
+                    _num(
+                        regime["regime_wall_seconds"]["mean"]
+                        if regime.get("regime_wall_seconds")
+                        else None
+                    ),
+                    _num(
+                        regime["peak_memory_bytes"]["mean"] / (1024**3)
+                        if regime.get("peak_memory_bytes")
+                        else None
+                    ),
+                    _num(
+                        regime["capability_gain_per_million_training_tokens"]["mean"]
+                        if regime.get("capability_gain_per_million_training_tokens")
+                        else None
+                    ),
                 )
             )
             + " |"
