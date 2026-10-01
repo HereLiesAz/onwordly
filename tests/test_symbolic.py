@@ -9,6 +9,7 @@ from onwordly.datasets.symbolic import (
 from onwordly.tasks.symbolic import (
     apply_symbolic_operation,
     generate_symbolic_task,
+    make_composed_symbolic_task,
     make_symbolic_task,
     symbolic_partition,
 )
@@ -67,3 +68,10 @@ def test_symbolic_dataset_partitions_do_not_cross() -> None:
     )
     assert all(symbolic_partition(task.symbols, task.operation) == "train" for task in train)
     assert all(symbolic_partition(task.symbols, task.operation) == "eval" for task in evaluation)
+
+
+def test_composed_symbolic_task_applies_rules_in_order() -> None:
+    task = make_composed_symbolic_task("CBBA", "dedupe_adjacent", "reverse")
+    assert task.answer == "ABC"
+    assert task.bucket_key == "dedupe_adjacent>reverse:4"
+    assert verify_symbolic_answer(task, "ABC")

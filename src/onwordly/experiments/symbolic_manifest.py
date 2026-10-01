@@ -13,6 +13,7 @@ class SymbolicExperimentManifest:
     token_budget: int
     static_dataset_size: int
     evaluation_size: int
+    composition_evaluation_size: int
     checkpoint_evaluation_size: int
     checkpoint_interval_tokens: int
     dataset_seed: int
@@ -39,7 +40,11 @@ class SymbolicExperimentManifest:
     def validate(self) -> None:
         if self.token_budget < 1:
             raise ValueError("token_budget must be positive")
-        if self.static_dataset_size < 1 or self.evaluation_size < 1:
+        if (
+            self.static_dataset_size < 1
+            or self.evaluation_size < 1
+            or self.composition_evaluation_size < 1
+        ):
             raise ValueError("dataset sizes must be positive")
         if not self.lengths or min(self.lengths) < 1:
             raise ValueError("lengths must contain positive integers")

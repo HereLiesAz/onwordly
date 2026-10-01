@@ -25,6 +25,7 @@ def test_symbolic_experiment_runs_equal_token_regimes(tmp_path) -> None:
         token_budget=20,
         static_dataset_size=12,
         evaluation_size=8,
+        composition_evaluation_size=6,
         checkpoint_evaluation_size=4,
         checkpoint_interval_tokens=10,
         dataset_seed=1,
@@ -47,6 +48,11 @@ def test_symbolic_experiment_runs_equal_token_regimes(tmp_path) -> None:
     assert set(result["regimes"]) == {"static", "adaptive", "error-focused"}
     assert (tmp_path / "summary.json").exists()
     assert (tmp_path / "evaluation-longer-sequences.jsonl").exists()
+    assert (tmp_path / "evaluation-composition.jsonl").exists()
     for regime in result["regimes"].values():
-        assert set(regime["evaluation"]) == {"heldout", "longer_sequences"}
+        assert set(regime["evaluation"]) == {
+            "heldout",
+            "longer_sequences",
+            "composition",
+        }
         assert regime["training"]["training_tokens"] <= manifest.token_budget

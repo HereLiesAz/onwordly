@@ -3,14 +3,23 @@ from __future__ import annotations
 from typing import Sequence
 
 from onwordly.models.base import ModelAdapter
-from onwordly.tasks.symbolic import SymbolicTask
+from typing import Protocol
+
+
+class SymbolicEvaluationTask(Protocol):
+    prompt: str
+    answer: str
+
+    @property
+    def bucket_key(self) -> str:
+        ...
 from onwordly.training.evaluation import EvaluationResult
 from onwordly.verifiers.symbolic import verify_symbolic_answer
 
 
 def evaluate_symbolic(
     adapter: ModelAdapter,
-    tasks: Sequence[SymbolicTask],
+    tasks: Sequence[SymbolicEvaluationTask],
 ) -> EvaluationResult:
     if not tasks:
         raise ValueError("evaluation set cannot be empty")

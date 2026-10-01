@@ -34,7 +34,7 @@ a result that survives a second exact domain.
 - balanced frozen dataset generation and JSONL round-trip support;
 - generalized equal-token training contract shared with arithmetic;
 - adaptive and error-focused symbolic curricula;
-- held-out and longer-sequence evaluation;
+- held-out, longer-sequence, and unseen two-step composition evaluation;
 - full and smoke manifests;
 - unit tests across generation, partitioning, curricula, sources, and experiment serialization.
 
@@ -50,9 +50,9 @@ onwordly-symbolic \
 
 ## Next dependency chain
 
-1. add a composition split that chains two transformations;
-2. run the smoke path, then one full seed;
-3. only if sane, run `onwordly-symbolic-suite --seeds 3303 4404 5505` and compare transfer of the arithmetic finding.
+1. run the smoke path, then one full seed;
+2. only if sane, run `onwordly-symbolic-suite --seeds 3303 4404 5505` and compare transfer of the arithmetic finding;
+3. if composition transfer remains weak, add targeted process/repair supervision before escalating to search.
 
 The repeated-seed suite, Markdown renderer, and Kaggle single/suite execution path are already prepared.
 

@@ -8,7 +8,11 @@ from time import perf_counter
 from typing import Callable, Sequence
 
 from onwordly.curricula.symbolic import AdaptiveSymbolicCurriculum
-from onwordly.datasets.symbolic import build_static_symbolic_dataset, write_symbolic_jsonl
+from onwordly.datasets.symbolic import (
+    build_static_symbolic_dataset,
+    build_symbolic_composition_dataset,
+    write_symbolic_jsonl,
+)
 from onwordly.experiments.symbolic_manifest import SymbolicExperimentManifest
 from onwordly.models.base import ModelAdapter
 from onwordly.models.huggingface import HuggingFaceCausalLMAdapter
@@ -109,11 +113,21 @@ def run_symbolic_experiment(
         partition="eval",
         partition_modulus=manifest.holdout_modulus,
     )
+    composition = build_symbolic_composition_dataset(
+        seed=manifest.evaluation_seed + 2,
+        size=manifest.composition_evaluation_size,
+        operations=manifest.operations,
+        lengths=manifest.lengths,
+        alphabet=manifest.alphabet,
+        partition="eval",
+        partition_modulus=manifest.holdout_modulus,
+    )
     checkpoint_tasks = heldout[: manifest.checkpoint_evaluation_size]
 
     write_symbolic_jsonl(train, output / "static-train.jsonl")
     write_symbolic_jsonl(heldout, output / "evaluation-heldout.jsonl")
     write_symbolic_jsonl(longer, output / "evaluation-longer-sequences.jsonl")
+    write_symbolic_jsonl(composition, output / "evaluation-composition.jsonl")
 
     factory = create_adapter or _factory(manifest)
     result: dict[str, object] = {
@@ -154,6 +168,7 @@ def run_symbolic_experiment(
         eval_started = perf_counter()
         heldout_result = evaluate_symbolic(adapter, heldout)
         longer_result = evaluate_symbolic(adapter, longer)
+        composition_result = evaluate_symbolic(adapter, composition)
         _sync(adapter)
         final_eval_seconds = perf_counter() - eval_started
         peak_reader = getattr(adapter, "peak_memory_bytes", None)
@@ -169,10 +184,13 @@ def run_symbolic_experiment(
             "evaluation": {
                 "heldout": heldout_result.to_dict(),
                 "longer_sequences": longer_result.to_dict(),
+                "composition": composition_result.to_dict(),
             },
             "measurement_overhead": {
                 "checkpoint_generation_calls": checkpoint_calls,
-                "final_evaluation_generation_calls": len(heldout) + len(longer),
+                "final_evaluation_generation_calls": (
+                    len(heldout) + len(longer) + len(composition)
+                ),
                 "checkpoint_seconds": checkpoint_seconds,
                 "final_evaluation_seconds": final_eval_seconds,
                 "regime_wall_seconds": perf_counter() - wall_started,

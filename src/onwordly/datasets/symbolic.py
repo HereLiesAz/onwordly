@@ -8,10 +8,13 @@ from typing import Iterable, Sequence
 
 from onwordly.tasks.symbolic import (
     SYMBOLIC_OPERATIONS,
+    ComposedSymbolicTask,
     SymbolicOperation,
     SymbolicPartition,
     SymbolicTask,
+    composed_symbolic_partition,
     generate_symbolic_task,
+    make_composed_symbolic_task,
     symbolic_task_in_partition,
 )
 
@@ -69,7 +72,51 @@ def build_static_symbolic_dataset(
     return tuple(tasks)
 
 
-def write_symbolic_jsonl(tasks: Sequence[SymbolicTask], path: str | Path) -> Path:
+def build_symbolic_composition_dataset(
+    *,
+    seed: int,
+    size: int,
+    operations: Iterable[SymbolicOperation] = SYMBOLIC_OPERATIONS,
+    lengths: Iterable[int] = (4, 8, 12),
+    alphabet: Sequence[str] = ("A", "B", "C", "D", "E"),
+    partition: SymbolicPartition | None = "eval",
+    partition_modulus: int = 5,
+) -> tuple[ComposedSymbolicTask, ...]:
+    if size < 1:
+        raise ValueError("size must be at least 1")
+    pairs = tuple(
+        (first, second, length)
+        for first in operations
+        for second in operations
+        if first != second
+        for length in lengths
+    )
+    if not pairs:
+        raise ValueError("composition requires at least two distinct operations")
+
+    rng = Random(seed)
+    tasks: list[ComposedSymbolicTask] = []
+    normalized_alphabet = tuple(symbol.upper() for symbol in alphabet)
+    for index in range(size):
+        first, second, length = pairs[index % len(pairs)]
+        for _ in range(10_000):
+            symbols = "".join(rng.choice(normalized_alphabet) for _ in range(length))
+            task = make_composed_symbolic_task(symbols, first, second)
+            if partition is None or composed_symbolic_partition(
+                task,
+                modulus=partition_modulus,
+            ) == partition:
+                tasks.append(task)
+                break
+        else:
+            raise RuntimeError(
+                "could not generate a composed symbolic task in the requested partition"
+            )
+    rng.shuffle(tasks)
+    return tuple(tasks)
+
+
+def write_symbolic_jsonl(tasks: Sequence[SymbolicTask | ComposedSymbolicTask], path: str | Path) -> Path:
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with destination.open("w", encoding="utf-8") as handle:

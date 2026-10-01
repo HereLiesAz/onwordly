@@ -122,3 +122,60 @@ def generate_symbolic_task(
 
 def symbolic_task_identity(task: SymbolicTask) -> tuple[str, str]:
     return task.operation, task.symbols
+
+
+@dataclass(frozen=True, slots=True)
+class ComposedSymbolicTask:
+    prompt: str
+    answer: str
+    first_operation: SymbolicOperation
+    second_operation: SymbolicOperation
+    length: int
+    symbols: str
+
+    @property
+    def target_text(self) -> str:
+        return self.answer
+
+    @property
+    def bucket_key(self) -> str:
+        return f"{self.first_operation}>{self.second_operation}:{self.length}"
+
+
+def make_composed_symbolic_task(
+    symbols: str,
+    first_operation: SymbolicOperation,
+    second_operation: SymbolicOperation,
+) -> ComposedSymbolicTask:
+    if first_operation == second_operation:
+        raise ValueError("composition operations must differ")
+    normalized = symbols.upper()
+    intermediate = apply_symbolic_operation(normalized, first_operation)
+    answer = apply_symbolic_operation(intermediate, second_operation)
+    prompt = (
+        f"Given the symbol sequence {normalized}, first {_RULE_TEXT[first_operation]}, "
+        f"then {_RULE_TEXT[second_operation]}. Return only the final symbol sequence "
+        "with no spaces or explanation."
+    )
+    return ComposedSymbolicTask(
+        prompt=prompt,
+        answer=answer,
+        first_operation=first_operation,
+        second_operation=second_operation,
+        length=len(normalized),
+        symbols=normalized,
+    )
+
+
+def composed_symbolic_partition(
+    task: ComposedSymbolicTask,
+    *,
+    modulus: int = 5,
+) -> SymbolicPartition:
+    if modulus < 2:
+        raise ValueError("modulus must be at least 2")
+    key = (
+        f"{task.first_operation}>{task.second_operation}:{task.symbols}"
+    ).encode("utf-8")
+    residue = int.from_bytes(blake2b(key, digest_size=8).digest(), "big") % modulus
+    return "eval" if residue == 0 else "train"

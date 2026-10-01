@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from onwordly.tasks.symbolic import SymbolicTask
+from typing import Protocol
+
+
+class SymbolicAnswerTask(Protocol):
+    answer: str
 
 
 def parse_symbolic_answer(text: str) -> str | None:
@@ -12,6 +16,6 @@ def parse_symbolic_answer(text: str) -> str | None:
     return stripped.upper()
 
 
-def verify_symbolic_answer(task: SymbolicTask, response: str) -> bool:
+def verify_symbolic_answer(task: SymbolicAnswerTask, response: str) -> bool:
     parsed = parse_symbolic_answer(response)
     return parsed == task.answer

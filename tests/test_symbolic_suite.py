@@ -24,6 +24,7 @@ def test_symbolic_suite_aggregates(tmp_path) -> None:
         token_budget=10,
         static_dataset_size=8,
         evaluation_size=6,
+        composition_evaluation_size=4,
         checkpoint_evaluation_size=3,
         checkpoint_interval_tokens=5,
         dataset_seed=1,
@@ -47,3 +48,5 @@ def test_symbolic_suite_aggregates(tmp_path) -> None:
     assert result["seeds"] == [3, 4]
     assert result["aggregate"]["runs"] == 2
     assert (tmp_path / "aggregate.json").exists()
+    for regime in result["aggregate"]["regimes"].values():
+        assert "composition" in regime["accuracy"]

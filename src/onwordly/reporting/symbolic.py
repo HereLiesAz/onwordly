@@ -25,16 +25,18 @@ def render_symbolic_result(path: str | Path) -> str:
             "",
             f"Runs: {aggregate['runs']}",
             "",
-            "| Regime | Held-out mean ± sd | Longer-sequence mean ± sd | Mean core seconds | Mean wall seconds |",
-            "| --- | ---: | ---: | ---: | ---: |",
+            "| Regime | Held-out mean ± sd | Longer-sequence mean ± sd | Composition mean ± sd | Mean core seconds | Mean wall seconds |",
+            "| --- | ---: | ---: | ---: | ---: | ---: |",
         ]
         for name in payload.get("regime_order", aggregate["regime_order"]):
             regime = aggregate["regimes"][name]
             heldout = regime["accuracy"]["heldout"]
             longer = regime["accuracy"]["longer_sequences"]
+            composition = regime["accuracy"]["composition"]
             lines.append(
                 f"| {name} | {_pct(heldout['mean'])} ± {_pct(heldout['stddev'])} | "
                 f"{_pct(longer['mean'])} ± {_pct(longer['stddev'])} | "
+                f"{_pct(composition['mean'])} ± {_pct(composition['stddev'])} | "
                 f"{_num(regime['training_core_seconds']['mean'])} | "
                 f"{_num(regime['regime_wall_seconds']['mean'])} |"
             )
@@ -43,14 +45,15 @@ def render_symbolic_result(path: str | Path) -> str:
     lines = [
         "# Symbolic transformation results",
         "",
-        "| Regime | Held-out | Longer sequences | Train tokens | Examples | Wall seconds |",
-        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Regime | Held-out | Longer sequences | Composition | Train tokens | Examples | Wall seconds |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name in payload["regime_order"]:
         regime = payload["regimes"][name]
         lines.append(
             f"| {name} | {_pct(regime['evaluation']['heldout']['accuracy'])} | "
             f"{_pct(regime['evaluation']['longer_sequences']['accuracy'])} | "
+            f"{_pct(regime['evaluation']['composition']['accuracy'])} | "
             f"{_num(regime['training']['training_tokens'])} | "
             f"{_num(regime['training']['examples_trained'])} | "
             f"{_num(regime['measurement_overhead']['regime_wall_seconds'])} |"

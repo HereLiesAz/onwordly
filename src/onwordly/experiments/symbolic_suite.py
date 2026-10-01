@@ -34,6 +34,7 @@ def aggregate_symbolic_suite(runs: list[dict[str, object]]) -> dict[str, object]
         split_values = {
             "heldout": [],
             "longer_sequences": [],
+            "composition": [],
         }
         train_tokens: list[float] = []
         examples: list[float] = []
