@@ -20,9 +20,9 @@ See [experiments/001-arithmetic-curriculum](experiments/001-arithmetic-curriculu
 
 ## Experiment 003 — symbolic substrate
 
-The next exact-verification domain is now implemented at the deterministic
-substrate level: reverse, sort, adjacent-deduplication, and left-rotation tasks.
-Training integration is intentionally not yet claimed as an experiment result.
+The next exact-verification domain now has deterministic generation, exact
+verification, stable train/eval partitioning, adaptive/error-focused curricula,
+and an equal-token real-model runner. No empirical result is claimed yet.
 
 See [experiments/003-symbolic-transformations](experiments/003-symbolic-transformations/README.md).
 
@@ -58,6 +58,9 @@ onwordly-arithmetic-suite --seeds 3303 4404 5505
 
 # Experiment 002 ablation
 onwordly-arithmetic-ablation
+
+# Experiment 003 symbolic transformations
+onwordly-symbolic
 ```
 
 ## Kaggle execution

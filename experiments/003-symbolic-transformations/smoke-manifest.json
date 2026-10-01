@@ -1,0 +1,35 @@
+{
+  "model_name": "Qwen/Qwen2.5-0.5B",
+  "token_budget": 1000,
+  "static_dataset_size": 120,
+  "evaluation_size": 24,
+  "checkpoint_evaluation_size": 12,
+  "checkpoint_interval_tokens": 250,
+  "dataset_seed": 3101,
+  "evaluation_seed": 3202,
+  "training_seed": 3303,
+  "learning_rate": 0.00002,
+  "max_new_tokens": 24,
+  "lengths": [
+    4,
+    6
+  ],
+  "out_of_range_lengths": [
+    8
+  ],
+  "operations": [
+    "reverse",
+    "sort",
+    "dedupe_adjacent",
+    "rotate_left"
+  ],
+  "alphabet": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E"
+  ],
+  "variants_per_failure": 2,
+  "holdout_modulus": 5
+}

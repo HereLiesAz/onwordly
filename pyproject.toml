@@ -21,6 +21,7 @@ onwordly-arithmetic = "onwordly.experiments.arithmetic:main"
 onwordly-arithmetic-suite = "onwordly.experiments.suite:main"
 onwordly-arithmetic-ablation = "onwordly.experiments.ablation:main"
 onwordly-arithmetic-report = "onwordly.reporting.arithmetic:main"
+onwordly-symbolic = "onwordly.experiments.symbolic:main"
 onwordly-kaggle = "onwordly.experiments.kaggle:main"
 
 [tool.setuptools.packages.find]

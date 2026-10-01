@@ -1,6 +1,6 @@
 # Experiment 003 — Symbolic transformations
 
-**Status: deterministic substrate implemented; training comparison not yet launched.**
+**Status: deterministic substrate and equal-token training comparison implemented; real-model run not yet launched.**
 
 ## Purpose
 
@@ -29,19 +29,30 @@ a result that survives a second exact domain.
 ## Implemented
 
 - deterministic task generator;
-- exact transformation function;
-- strict answer verifier;
-- balanced frozen dataset generation;
-- JSONL round-trip support;
-- unit tests across all operations and difficulty lengths.
+- exact transformation function and strict verifier;
+- stable train/eval sequence partitioning;
+- balanced frozen dataset generation and JSONL round-trip support;
+- generalized equal-token training contract shared with arithmetic;
+- adaptive and error-focused symbolic curricula;
+- held-out and longer-sequence evaluation;
+- full and smoke manifests;
+- unit tests across generation, partitioning, curricula, sources, and experiment serialization.
+
+## Run
+
+```bash
+pip install -e '.[train,test]'
+pytest
+onwordly-symbolic \
+  --manifest experiments/003-symbolic-transformations/smoke-manifest.json \
+  --output results/003-symbolic-transformations-smoke
+```
 
 ## Next dependency chain
 
-1. generalize the equal-token harness from arithmetic-specific task metadata to a
-   minimal verifiable-task protocol;
-2. add static, online-uniform, adaptive, and error-focused symbolic sources;
-3. define train/eval sequence partitions that prevent exact-sequence leakage;
-4. add in-range, longer-sequence, and composition evaluation splits;
-5. run the same repeated-seed discipline used for arithmetic.
+1. add a repeated-seed symbolic suite and report renderer;
+2. add a composition split that chains two transformations;
+3. run the smoke path, then one full seed;
+4. only if sane, run repeated seeds and compare transfer of the arithmetic finding.
 
-No symbolic result should be interpreted until those controls exist.
+No symbolic result should be interpreted until repeated-seed controls exist.
