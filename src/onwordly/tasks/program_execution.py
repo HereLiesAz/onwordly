@@ -138,6 +138,59 @@ def make_program_trace_task(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class ProgramSupervisionTask:
+    """One program with a common prompt and selectable supervision density."""
+
+    prompt: str
+    target: str
+    final_answer: int
+    states: tuple[int, ...]
+    instructions: tuple[Instruction, ...]
+    length: int
+    supervision: Literal["outcome", "trace"]
+
+    @property
+    def target_text(self) -> str:
+        return self.target
+
+    @property
+    def bucket_key(self) -> str:
+        return f"program-supervision:{self.length}"
+
+
+def make_program_supervision_task(
+    instructions: Sequence[Instruction],
+    *,
+    supervision: Literal["outcome", "trace"],
+) -> ProgramSupervisionTask:
+    normalized = tuple(instructions)
+    states = execute_program_trace(normalized)
+    final_answer = states[-1]
+    program_text = "; ".join(instruction.render() for instruction in normalized)
+    prompt = (
+        "Execute this accumulator program from left to right. The accumulator starts at 0. "
+        "SET replaces it, ADD/SUB/MUL apply the integer argument, and NEG changes its sign. "
+        f"Program: {program_text}. You may include the exact intermediate accumulator states, "
+        "but the response must end with FINAL=<integer>."
+    )
+    if supervision == "outcome":
+        target = f"FINAL={final_answer}"
+    elif supervision == "trace":
+        target = f"TRACE={format_program_trace(states)};FINAL={final_answer}"
+    else:
+        raise ValueError(f"unsupported supervision mode: {supervision}")
+    return ProgramSupervisionTask(
+        prompt=prompt,
+        target=target,
+        final_answer=final_answer,
+        states=states,
+        instructions=normalized,
+        length=len(normalized),
+        supervision=supervision,
+    )
+
+
 def generate_program_task(
     rng: Random,
     length: int,

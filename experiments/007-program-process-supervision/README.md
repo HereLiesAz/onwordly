@@ -1,6 +1,6 @@
 # Experiment 007 — Exact process supervision for program execution
 
-**Status: exact trace substrate implemented; comparative training experiment not yet launched.**
+**Status: exact trace substrate and outcome-vs-trace training ablation implemented; real-model run not yet launched.**
 
 This experiment uses the existing accumulator DSL because every intermediate
 state is mechanically decidable. That makes it possible to test process
@@ -36,15 +36,25 @@ are worth their extra target tokens and training cost.
 - trace task contract compatible with the generalized training harness;
 - tests for alignment, missing steps, formatting, and final state.
 
-## Before launching
+## Prepared comparison
 
-The training ablation still needs to hold the comparison clean:
+Both regimes see the **same prompt and same frozen program sequence**. The only
+training-target difference is supervision density:
 
-1. define outcome-only vs trace-supervised regimes with explicit token accounting;
-2. ensure both evaluate on the same final-answer and trace sets;
-3. report the extra supervised target tokens and generation cost separately;
-4. add an ablation that distinguishes benefit from merely exposing more target tokens;
-5. smoke-test before any full run.
+- outcome-only: `FINAL=-15`;
+- trace-supervised: `TRACE=3,7,14,-14,-15;FINAL=-15`.
+
+The existing equal-token harness counts the longer trace target against the same
+model-token ceiling, so trace supervision necessarily purchases fewer training
+examples when it costs more tokens. Both regimes are evaluated on final-answer
+accuracy and exact-trace accuracy.
+
+A full and smoke manifest are present. Before any full run:
+
+1. let CI validate the scaffold;
+2. run the smoke manifest;
+3. inspect actual target-token/example counts;
+4. add a repeated-seed suite only if the comparison behaves sanely.
 
 No chain-of-thought data is required; the trace is the executable machine state,
 not an unconstrained natural-language rationale.
