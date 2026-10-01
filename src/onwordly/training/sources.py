@@ -16,6 +16,17 @@ class ArithmeticTaskSource(Protocol):
         ...
 
 
+class ArithmeticCurriculum(Protocol):
+    def generate(self, rng: Random) -> ArithmeticTask:
+        ...
+
+    def update(self, task: ArithmeticTask, correct: bool) -> None:
+        ...
+
+    def accepts(self, task: ArithmeticTask) -> bool:
+        ...
+
+
 class StaticArithmeticSource:
     def __init__(self, tasks: Sequence[ArithmeticTask]) -> None:
         if not tasks:
@@ -34,7 +45,13 @@ class StaticArithmeticSource:
 
 
 class AdaptiveArithmeticSource:
-    def __init__(self, curriculum: AdaptiveArithmeticCurriculum | None = None) -> None:
+    """Online source backed by a curriculum.
+
+    The historical class name is kept for compatibility; the supplied curriculum
+    may be adaptive or uniform.
+    """
+
+    def __init__(self, curriculum: ArithmeticCurriculum | None = None) -> None:
         self.curriculum = curriculum or AdaptiveArithmeticCurriculum()
 
     def next_task(self, rng: Random) -> ArithmeticTask:
@@ -45,7 +62,7 @@ class AdaptiveArithmeticSource:
 
 
 class ErrorFocusedArithmeticSource(AdaptiveArithmeticSource):
-    """Adaptive source that queues nearby variants after a failed attempt.
+    """Online source that queues nearby variants after a failed base attempt.
 
     This is intentionally an application of established hard-example/counterexample
     training ideas, not a novelty claim.
@@ -53,7 +70,7 @@ class ErrorFocusedArithmeticSource(AdaptiveArithmeticSource):
 
     def __init__(
         self,
-        curriculum: AdaptiveArithmeticCurriculum | None = None,
+        curriculum: ArithmeticCurriculum | None = None,
         *,
         variants_per_failure: int = 4,
     ) -> None:

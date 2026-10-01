@@ -5,9 +5,10 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 from time import perf_counter
-from typing import Callable
+from typing import Callable, Sequence
 
 from onwordly.curricula.adaptive import AdaptiveArithmeticCurriculum
+from onwordly.curricula.uniform import UniformArithmeticCurriculum
 from onwordly.datasets.arithmetic import build_static_arithmetic_dataset, write_arithmetic_jsonl
 from onwordly.experiments.manifest import ArithmeticExperimentManifest
 from onwordly.models.base import ModelAdapter
@@ -16,8 +17,19 @@ from onwordly.training.evaluation import EvaluationResult, evaluate_arithmetic
 from onwordly.training.harness import run_equal_token_training
 from onwordly.training.sources import (
     AdaptiveArithmeticSource,
+    ArithmeticTaskSource,
     ErrorFocusedArithmeticSource,
     StaticArithmeticSource,
+)
+from onwordly.tasks.arithmetic import ArithmeticTask
+
+DEFAULT_REGIMES: tuple[str, ...] = ("static", "adaptive", "error-focused")
+ABLATION_REGIMES: tuple[str, ...] = (
+    "static",
+    "online-uniform",
+    "adaptive",
+    "error-focused-uniform",
+    "error-focused-adaptive",
 )
 
 
@@ -40,6 +52,39 @@ def _adaptive_curriculum(manifest: ArithmeticExperimentManifest) -> AdaptiveArit
         partition="train",
         partition_modulus=manifest.holdout_modulus,
     )
+
+
+def _uniform_curriculum(manifest: ArithmeticExperimentManifest) -> UniformArithmeticCurriculum:
+    return UniformArithmeticCurriculum(
+        operations=manifest.operations,
+        digit_levels=manifest.digit_levels,
+        partition="train",
+        partition_modulus=manifest.holdout_modulus,
+    )
+
+
+def _source_for_regime(
+    regime: str,
+    manifest: ArithmeticExperimentManifest,
+    static_tasks: Sequence[ArithmeticTask],
+) -> ArithmeticTaskSource:
+    if regime == "static":
+        return StaticArithmeticSource(static_tasks)
+    if regime == "online-uniform":
+        return AdaptiveArithmeticSource(_uniform_curriculum(manifest))
+    if regime == "adaptive":
+        return AdaptiveArithmeticSource(_adaptive_curriculum(manifest))
+    if regime in ("error-focused", "error-focused-adaptive"):
+        return ErrorFocusedArithmeticSource(
+            _adaptive_curriculum(manifest),
+            variants_per_failure=manifest.variants_per_failure,
+        )
+    if regime == "error-focused-uniform":
+        return ErrorFocusedArithmeticSource(
+            _uniform_curriculum(manifest),
+            variants_per_failure=manifest.variants_per_failure,
+        )
+    raise ValueError(f"unknown arithmetic regime: {regime}")
 
 
 def _tokens_to_threshold(
@@ -82,8 +127,13 @@ def run_experiment(
     *,
     output_dir: str | Path,
     create_adapter: Callable[[], ModelAdapter] | None = None,
+    regimes: Sequence[str] = DEFAULT_REGIMES,
 ) -> dict[str, object]:
     manifest.validate()
+    regime_names = tuple(regimes)
+    if not regime_names or len(set(regime_names)) != len(regime_names):
+        raise ValueError("regimes must be a non-empty sequence of unique names")
+
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
 
@@ -128,24 +178,13 @@ def run_experiment(
     write_arithmetic_jsonl(out_of_range_tasks, output / "evaluation-out-of-range.jsonl")
 
     factory = create_adapter or _adapter_factory(manifest)
-    regimes = (
-        ("static", lambda: StaticArithmeticSource(static_tasks)),
-        ("adaptive", lambda: AdaptiveArithmeticSource(_adaptive_curriculum(manifest))),
-        (
-            "error-focused",
-            lambda: ErrorFocusedArithmeticSource(
-                _adaptive_curriculum(manifest),
-                variants_per_failure=manifest.variants_per_failure,
-            ),
-        ),
-    )
-
     results: dict[str, object] = {
         "manifest": asdict(manifest),
+        "regime_order": list(regime_names),
         "regimes": {},
     }
 
-    for regime_name, source_factory in regimes:
+    for regime_name in regime_names:
         adapter = factory()
         checkpoint_generation_calls = 0
         checkpoint_seconds = 0.0
@@ -167,7 +206,7 @@ def run_experiment(
         training = run_equal_token_training(
             regime=regime_name,
             adapter=adapter,
-            source=source_factory(),
+            source=_source_for_regime(regime_name, manifest, static_tasks),
             token_budget=manifest.token_budget,
             seed=manifest.training_seed,
             checkpoint_interval_tokens=manifest.checkpoint_interval_tokens,

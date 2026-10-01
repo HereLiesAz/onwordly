@@ -20,9 +20,18 @@ def _num(value: float | int | None) -> str:
     return f"{float(value):,.2f}"
 
 
+def _regime_order(payload: dict[str, Any]) -> tuple[str, ...]:
+    declared = payload.get("regime_order")
+    if isinstance(declared, list) and all(isinstance(item, str) for item in declared):
+        return tuple(declared)
+    regimes = payload.get("regimes", {})
+    return tuple(regimes)
+
+
 def render_single_run(summary: dict[str, Any]) -> str:
+    title = "# Arithmetic experiment results"
     lines = [
-        "# Experiment 001 results",
+        title,
         "",
         "## Final evaluation",
         "",
@@ -30,7 +39,7 @@ def render_single_run(summary: dict[str, Any]) -> str:
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
 
-    for regime_name in ("static", "adaptive", "error-focused"):
+    for regime_name in _regime_order(summary):
         regime = summary["regimes"][regime_name]
         evaluation = regime["evaluation"]
         training = regime["training"]
@@ -61,7 +70,7 @@ def render_single_run(summary: dict[str, Any]) -> str:
         ]
     )
 
-    for regime_name in ("static", "adaptive", "error-focused"):
+    for regime_name in _regime_order(summary):
         thresholds = summary["regimes"][regime_name]["tokens_to_threshold"]
         lines.append(
             "| "
@@ -91,8 +100,13 @@ def render_single_run(summary: dict[str, Any]) -> str:
 
 def render_suite(aggregate_payload: dict[str, Any]) -> str:
     aggregate = aggregate_payload["aggregate"]
+    regime_order = tuple(
+        aggregate_payload.get("regime_order")
+        or aggregate.get("regime_order")
+        or aggregate["regimes"].keys()
+    )
     lines = [
-        "# Experiment 001 repeated-seed results",
+        "# Arithmetic repeated-seed results",
         "",
         f"Runs: {aggregate['runs']}",
         "",
@@ -102,7 +116,7 @@ def render_suite(aggregate_payload: dict[str, Any]) -> str:
         "| --- | ---: | ---: | ---: |",
     ]
 
-    for regime_name in ("static", "adaptive", "error-focused"):
+    for regime_name in regime_order:
         regime = aggregate["regimes"][regime_name]
         cells = []
         for split in ("heldout", "withheld_prompts", "out_of_range"):
@@ -120,7 +134,7 @@ def render_suite(aggregate_payload: dict[str, Any]) -> str:
         ]
     )
 
-    for regime_name in ("static", "adaptive", "error-focused"):
+    for regime_name in regime_order:
         regime = aggregate["regimes"][regime_name]
         lines.append(
             "| "
@@ -161,10 +175,7 @@ def render_result(path: str | Path) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Render Onwordly arithmetic result JSON as Markdown")
     parser.add_argument("input", help="summary.json or aggregate.json")
-    parser.add_argument(
-        "--output",
-        help="Markdown output path; defaults to stdout",
-    )
+    parser.add_argument("--output", help="Markdown output path; defaults to stdout")
     args = parser.parse_args()
 
     rendered = render_result(args.input)

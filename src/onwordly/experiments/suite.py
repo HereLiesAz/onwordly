@@ -8,7 +8,7 @@ from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Callable, Iterable
 
-from onwordly.experiments.arithmetic import run_experiment
+from onwordly.experiments.arithmetic import DEFAULT_REGIMES, run_experiment
 from onwordly.experiments.manifest import ArithmeticExperimentManifest
 from onwordly.models.base import ModelAdapter
 
@@ -27,8 +27,15 @@ def aggregate_suite(run_results: list[dict[str, object]]) -> dict[str, object]:
     if not run_results:
         raise ValueError("suite has no runs")
 
-    regime_names = ("static", "adaptive", "error-focused")
-    aggregate: dict[str, object] = {"runs": len(run_results), "regimes": {}}
+    regime_names = tuple(run_results[0].get("regime_order", DEFAULT_REGIMES))
+    if any(tuple(run.get("regime_order", regime_names)) != regime_names for run in run_results):
+        raise ValueError("suite runs do not share the same regime order")
+
+    aggregate: dict[str, object] = {
+        "runs": len(run_results),
+        "regime_order": list(regime_names),
+        "regimes": {},
+    }
 
     for regime_name in regime_names:
         split_accuracies: dict[str, list[float]] = {
@@ -48,13 +55,10 @@ def aggregate_suite(run_results: list[dict[str, object]]) -> dict[str, object]:
         }
 
         for run in run_results:
-            regimes = run["regimes"]
-            regime = regimes[regime_name]
+            regime = run["regimes"][regime_name]
             evaluation = regime["evaluation"]
             for split_name in split_accuracies:
-                split_accuracies[split_name].append(
-                    float(evaluation[split_name]["accuracy"])
-                )
+                split_accuracies[split_name].append(float(evaluation[split_name]["accuracy"]))
 
             training = regime["training"]
             training_tokens.append(float(training["training_tokens"]))
@@ -106,13 +110,7 @@ def write_checkpoint_csv(
     with destination.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=(
-                "seed",
-                "regime",
-                "scheduled_tokens",
-                "actual_tokens",
-                "accuracy",
-            ),
+            fieldnames=("seed", "regime", "scheduled_tokens", "actual_tokens", "accuracy"),
         )
         writer.writeheader()
         for seed, run in zip(seeds, run_results, strict=True):
@@ -162,6 +160,7 @@ def run_suite(
     aggregate = aggregate_suite(run_results)
     suite_result = {
         "seeds": seed_list,
+        "regime_order": list(DEFAULT_REGIMES),
         "aggregate": aggregate,
     }
 
@@ -180,13 +179,7 @@ def main() -> None:
         default="experiments/001-arithmetic-curriculum/manifest.json",
         help="Path to experiment manifest",
     )
-    parser.add_argument(
-        "--seeds",
-        nargs="+",
-        type=int,
-        default=[3303, 4404, 5505],
-        help="Training/random seeds to repeat",
-    )
+    parser.add_argument("--seeds", nargs="+", type=int, default=[3303, 4404, 5505])
     parser.add_argument(
         "--output",
         default="results/001-arithmetic-curriculum-suite",
