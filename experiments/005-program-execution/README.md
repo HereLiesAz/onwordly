@@ -1,6 +1,6 @@
 # Experiment 005 — Simple program execution
 
-**Status: deterministic substrate implemented; training integration pending.**
+**Status: deterministic substrate and equal-token training comparison implemented; real-model run not yet launched.**
 
 This Phase 0 domain tests a different kind of exact technique: executing a tiny
 stateful program rather than transforming one expression or string.
@@ -26,9 +26,17 @@ whole programs into train/eval sets.
 - stable train/eval partitioning;
 - unit tests for execution, generation, partitioning, and dataset balance.
 
+## Implemented beyond the substrate
+
+- adaptive and error-focused curricula over program length;
+- equal-token static/adaptive/error-focused runner;
+- held-out and longer-program evaluation;
+- full and smoke manifests;
+- repeated-seed suite;
+- Kaggle single/suite execution support.
+
 ## Next
 
-1. add adaptive and error-focused curricula over instruction-family/program-length buckets;
-2. add longer-program and unseen instruction-composition evaluation;
-3. reuse the generic equal-token harness;
-4. smoke test before any full model run.
+1. add unseen instruction-composition evaluation;
+2. smoke test the runner;
+3. run one full seed before spending on repeated seeds.

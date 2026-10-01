@@ -37,8 +37,8 @@ See [experiments/004-string-manipulation](experiments/004-string-manipulation/RE
 ## Experiment 005 — simple program execution substrate
 
 A tiny accumulator-machine DSL now provides another exact-verification domain,
-with deterministic program generation, interpretation, stable partitioning, and
-strict answer verification.
+with deterministic execution, adaptive/error-focused curricula, an equal-token
+runner, longer-program evaluation, repeated-seed aggregation, and Kaggle support.
 
 See [experiments/005-program-execution](experiments/005-program-execution/README.md).
 

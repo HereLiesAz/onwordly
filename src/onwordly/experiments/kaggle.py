@@ -17,6 +17,10 @@ from onwordly.experiments.string_manipulation import run_string_experiment
 from onwordly.experiments.string_manifest import StringExperimentManifest
 from onwordly.experiments.string_suite import run_string_suite
 from onwordly.reporting.string_manipulation import render_string_result
+from onwordly.experiments.program_execution import run_program_experiment
+from onwordly.experiments.program_manifest import ProgramExperimentManifest
+from onwordly.experiments.program_suite import run_program_suite
+from onwordly.reporting.program_execution import render_program_result
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +52,7 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
     seeds_text = values.get("seeds", "3303,4404,5505")
     seeds = tuple(int(value.strip()) for value in seeds_text.split(",") if value.strip())
 
-    if experiment not in {"001", "002", "003", "004"}:
+    if experiment not in {"001", "002", "003", "004", "005"}:
         raise ValueError(f"unsupported experiment: {experiment}")
     if mode not in {"single", "suite"}:
         raise ValueError(f"unsupported mode: {mode}")
@@ -67,6 +71,22 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
 
 def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
     root = Path(output_root)
+
+    if plan.experiment == "005":
+        program_manifest = ProgramExperimentManifest.from_json(plan.manifest)
+        if plan.mode == "single":
+            output = root / "005-program-execution"
+            run_program_experiment(program_manifest, output_dir=output)
+            result_path = output / "summary.json"
+        else:
+            output = root / "005-program-execution-suite"
+            run_program_suite(program_manifest, seeds=plan.seeds, output_dir=output)
+            result_path = output / "aggregate.json"
+        (output / "RESULTS.md").write_text(
+            render_program_result(result_path),
+            encoding="utf-8",
+        )
+        return output
 
     if plan.experiment == "004":
         string_manifest = StringExperimentManifest.from_json(plan.manifest)
