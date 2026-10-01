@@ -26,6 +26,14 @@ and an equal-token real-model runner. No empirical result is claimed yet.
 
 See [experiments/003-symbolic-transformations](experiments/003-symbolic-transformations/README.md).
 
+## Experiment 004 — constrained string substrate
+
+A third exact-verification domain now has deterministic generation, stable
+train/eval partitioning, and strict verification for several constrained string
+transformations. Training integration is the next step.
+
+See [experiments/004-string-manipulation](experiments/004-string-manipulation/README.md).
+
 ## Experiment 002 — prepared ablation
 
 The next experiment is already scaffolded so we do not have to invent an explanation after seeing Experiment 001.
