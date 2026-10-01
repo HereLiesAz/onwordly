@@ -22,61 +22,29 @@ All three receive the same training-token budget and the same pre-update generat
 
 ### Leakage control
 
-Operand combinations are deterministically partitioned into train/eval sets with a stable hash. Addition and multiplication normalize operand order before partitioning, so reversed commutative forms cannot cross the split. Adaptive generation and error-focused variants are constrained to the training partition.
+Operand combinations are deterministically partitioned into train/eval sets with a stable hash. Addition and multiplication normalize operand order **only for the partition key**, not for the generated prompt, so reversed commutative forms cannot cross the split without collapsing the training distribution. Adaptive generation and error-focused variants are constrained to the training partition.
 
 ### Evaluation
 
-Each run records:
-
-- a baseline checkpoint at 0 training tokens;
-- periodic held-out checkpoints;
-- a final held-out evaluation;
-- a final withheld-prompt-form evaluation;
-- a final out-of-range-digit evaluation;
-- first observed token count reaching 70%, 80%, 90%, and 95% checkpoint accuracy.
+Each run records baseline and periodic held-out checkpoints, final held-out accuracy, withheld-prompt accuracy, out-of-range-digit accuracy, and first observed token count reaching 70%, 80%, 90%, and 95% checkpoint accuracy.
 
 Checkpoint outcomes are never passed to the adaptive curriculum.
 
 ### Resource accounting
 
-Each regime records:
-
-- exact training tokens;
-- examples trained;
-- training-time generation calls;
-- verifier calls;
-- core training seconds;
-- checkpoint and final evaluation generation calls;
-- checkpoint and final evaluation seconds;
-- total generation calls including measurement overhead;
-- model parameter count and device when exposed by the adapter.
+Each regime records exact training tokens, examples trained, training-time generation calls, verifier calls, core training seconds, evaluation generation calls, evaluation seconds, total generation calls, model parameter count, and device when exposed by the adapter.
 
 ### Repeated runs
 
-`onwordly-arithmetic-suite` repeats the complete three-regime experiment across seeds and writes:
+`onwordly-arithmetic-suite` repeats the complete experiment across seeds and writes one result directory per seed, `aggregate.json`, and `checkpoints.csv`.
 
-- one result directory per seed;
-- `aggregate.json` with mean/stddev/min/max summaries;
-- `checkpoints.csv` for accuracy-versus-training-token curves.
+### Reporting
 
-The default suite seeds are 3303, 4404, and 5505.
+`onwordly-arithmetic-report` renders either a single-run `summary.json` or suite `aggregate.json` into a compact Markdown report. The canonical report target is:
 
-## Default configuration
+`experiments/001-arithmetic-curriculum/RESULTS.md`
 
-See `experiments/001-arithmetic-curriculum/manifest.json`.
-
-Current defaults:
-
-- model: `Qwen/Qwen2.5-0.5B`;
-- 100,000 training tokens per regime;
-- 10,000 frozen static examples;
-- 1,000 held-out examples;
-- 600 examples per generalization split;
-- checkpoint every 10,000 training tokens on 180 held-out examples;
-- training digits: 1–3;
-- out-of-range digits: 4;
-- withheld prompt forms: question, words, expression;
-- holdout partition: one stable residue out of five.
+That file currently contains only instructions because no real model result exists yet.
 
 ## Current blocker
 
@@ -88,19 +56,12 @@ A local container test attempt also could not clone GitHub because that containe
 
 1. Let centralized `ci-validation` run once the workflow controller provisions it, or run `pytest` in any Python 3.10+ environment.
 2. Obtain compute for `Qwen/Qwen2.5-0.5B`.
-3. Run a single seed first:
-   ```bash
-   pip install -e '.[train,test]'
-   pytest
-   onwordly-arithmetic
-   ```
-4. Inspect `results/001-arithmetic-curriculum/summary.json` for implementation mistakes or pathological behavior.
-5. If the single run is sane, run:
-   ```bash
-   onwordly-arithmetic-suite --seeds 3303 4404 5505
-   ```
-6. Compare regimes using both accuracy and resource cost. Do not select a conclusion from one seed.
-7. If an adaptive regime shows a repeatable advantage, design the next ablation before adding PRMs, MCTS, or multi-agent language games.
+3. Run one seed with `onwordly-arithmetic`.
+4. Render and inspect the single-run report.
+5. If sane, run `onwordly-arithmetic-suite --seeds 3303 4404 5505`.
+6. Render the suite report into `experiments/001-arithmetic-curriculum/RESULTS.md`.
+7. Inspect `checkpoints.csv` and every seed before interpreting the aggregate.
+8. If an adaptive regime shows a repeatable advantage, design an ablation before adding PRMs, MCTS, or multi-agent language games.
 
 ## Interpretation rule
 
