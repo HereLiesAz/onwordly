@@ -18,6 +18,22 @@ The first real-model run is currently executing on Kaggle GPU through the centra
 
 See [experiments/001-arithmetic-curriculum](experiments/001-arithmetic-curriculum/README.md).
 
+## Experiment 002 — prepared ablation
+
+The next experiment is already scaffolded so we do not have to invent an explanation after seeing Experiment 001.
+
+It separates:
+
+1. frozen static data;
+2. fresh online data sampled uniformly;
+3. competence-responsive adaptive sampling;
+4. failure-neighborhood examples without adaptive bucket weighting;
+5. failure-neighborhood examples combined with adaptive weighting.
+
+Experiment 002 is deliberately **gated** until Experiment 001 has a sane repeated-seed result worth explaining.
+
+See [experiments/002-adaptive-ablation](experiments/002-adaptive-ablation/README.md).
+
 ## Experiment 003 — symbolic substrate
 
 The next exact-verification domain now has deterministic generation, exact
@@ -50,22 +66,6 @@ evaluation, repeated-seed aggregation, and Kaggle execution support.
 
 See [experiments/006-formal-logic](experiments/006-formal-logic/README.md).
 
-## Experiment 002 — prepared ablation
-
-The next experiment is already scaffolded so we do not have to invent an explanation after seeing Experiment 001.
-
-It separates:
-
-1. frozen static data;
-2. fresh online data sampled uniformly;
-3. competence-responsive adaptive sampling;
-4. failure-neighborhood examples without adaptive bucket weighting;
-5. failure-neighborhood examples combined with adaptive weighting.
-
-Experiment 002 is deliberately **gated** until Experiment 001 has a sane repeated-seed result worth explaining.
-
-See [experiments/002-adaptive-ablation](experiments/002-adaptive-ablation/README.md).
-
 ## Local commands
 
 ```bash
@@ -85,6 +85,15 @@ onwordly-arithmetic-ablation
 
 # Experiment 003 symbolic transformations
 onwordly-symbolic
+
+# Experiment 004 constrained strings
+onwordly-string
+
+# Experiment 005 program execution
+onwordly-program
+
+# Experiment 006 formal logic
+onwordly-logic
 ```
 
 ## Kaggle execution
@@ -93,9 +102,12 @@ onwordly-symbolic
 
 Supported prepared modes:
 
-- Experiment 001 + `single`
-- Experiment 001 + `suite`
+- Experiment 001 + `single` / `suite`
 - Experiment 002 + `single`
+- Experiment 003 + `single` / `suite`
+- Experiment 004 + `single` / `suite`
+- Experiment 005 + `single` / `suite`
+- Experiment 006 + `single` / `suite`
 
 Experiment 002 + `suite` intentionally remains blocked until Experiment 001 justifies spending that compute.
 
@@ -111,8 +123,8 @@ Read `AGENTS.md`, then `docs/session-handoff.md`.
 - `docs/session-handoff.md` — current state and next actions.
 - `experiments/` — experiment specifications and manifests.
 - `src/onwordly/datasets/` — frozen dataset generation.
-- `src/onwordly/tasks/` — arithmetic and symbolic task generators and split logic.
-- `src/onwordly/verifiers/` — exact/programmatic arithmetic and symbolic verification.
+- `src/onwordly/tasks/` — arithmetic, symbolic, string, program, and logic task generators and split logic.
+- `src/onwordly/verifiers/` — exact/programmatic verification across every Phase 0 domain.
 - `src/onwordly/curricula/` — uniform and adaptive curricula.
 - `src/onwordly/training/` — sources, equal-token harness, evaluation.
 - `src/onwordly/models/` — model adapters.

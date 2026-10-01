@@ -27,6 +27,16 @@ from onwordly.experiments.logic_suite import run_logic_suite
 from onwordly.reporting.formal_logic import render_logic_result
 
 
+DEFAULT_MANIFESTS: dict[str, str] = {
+    "001": "experiments/001-arithmetic-curriculum/manifest.json",
+    "002": "experiments/002-adaptive-ablation/manifest.json",
+    "003": "experiments/003-symbolic-transformations/manifest.json",
+    "004": "experiments/004-string-manipulation/manifest.json",
+    "005": "experiments/005-program-execution/manifest.json",
+    "006": "experiments/006-formal-logic/manifest.json",
+}
+
+
 @dataclass(frozen=True, slots=True)
 class KaggleRunPlan:
     experiment: str
@@ -49,14 +59,11 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
 
     experiment = values.get("experiment", "001")
     mode = values.get("mode", "single")
-    manifest = values.get(
-        "manifest",
-        f"experiments/{experiment}-arithmetic-curriculum/manifest.json",
-    )
+    manifest = values.get("manifest", DEFAULT_MANIFESTS.get(experiment, ""))
     seeds_text = values.get("seeds", "3303,4404,5505")
     seeds = tuple(int(value.strip()) for value in seeds_text.split(",") if value.strip())
 
-    if experiment not in {"001", "002", "003", "004", "005", "006"}:
+    if experiment not in DEFAULT_MANIFESTS:
         raise ValueError(f"unsupported experiment: {experiment}")
     if mode not in {"single", "suite"}:
         raise ValueError(f"unsupported mode: {mode}")

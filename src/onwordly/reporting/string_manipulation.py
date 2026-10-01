@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -46,3 +47,21 @@ def render_string_result(path: str | Path) -> str:
             f"{regime['training']['examples_trained']} |"
         )
     return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Render constrained-string result JSON")
+    parser.add_argument("input")
+    parser.add_argument("--output")
+    args = parser.parse_args()
+    rendered = render_string_result(args.input)
+    if args.output:
+        destination = Path(args.output)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(rendered, encoding="utf-8")
+    else:
+        print(rendered, end="")
+
+
+if __name__ == "__main__":
+    main()
