@@ -10,8 +10,6 @@ The wager is that useful supervision depends less on raw example count than on h
 
 ## Operational principle
 
-The training loop is:
-
 ```text
 generate task
     ↓
@@ -27,23 +25,23 @@ train
     ↺
 ```
 
-The system should spend progressively less compute reproducing behavior the model already demonstrates reliably.
+The system should spend progressively less training budget reproducing behavior the model already demonstrates reliably.
 
-## Measurements
+## Measurement discipline
 
 Every experiment should report at least:
 
 - held-out accuracy;
-- compositional/generalization accuracy;
+- compositional/generalization accuracy when applicable;
 - training tokens consumed;
 - generated examples consumed;
-- wall-clock training time;
-- peak memory;
+- wall-clock training time when real models are used;
+- peak memory when available;
 - parameter count;
 - verifier calls;
 - capability gained per million training tokens.
 
-Where practical, report compute-normalized measures as well.
+Equal-token comparisons are necessary but not sufficient: adaptive methods may spend extra inference or verification compute. That overhead must be recorded rather than smuggled into the wallpaper.
 
 ## Research phases
 
@@ -61,7 +59,7 @@ Initial domains:
 
 ### Phase 1 — curriculum efficiency
 
-Compare static sampling with adaptive curricula while holding model, optimizer, token budget, and evaluation set constant.
+Compare static sampling with adaptive curricula while holding model, optimizer, training-token budget, evaluation set, and random-seed sets constant.
 
 ### Phase 2 — counterexamples and repair
 
@@ -83,7 +81,8 @@ Move from closed-form tasks into interactive environments where success depends 
 
 1. **No novelty laundering.** Existing techniques keep their existing names.
 2. **Ablate everything.** A new combination is not evidence until its parts are separately measured.
-3. **Equal budgets.** Comparisons use matched token/compute budgets wherever possible.
+3. **Equal budgets.** Comparisons use matched training-token and, where practical, compute budgets.
 4. **Prefer exact verification.** Neural judges are introduced only when programmatic verification is inadequate.
 5. **Small first.** Experiments should fail cheaply.
 6. **Keep inference cheap.** Expensive search is acceptable during training if it can later be distilled away.
+7. **Freeze evaluation.** Adaptive generators never receive held-out evaluation outcomes.

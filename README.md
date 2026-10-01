@@ -24,26 +24,45 @@ Onwordly explores:
 
 ## First experiment
 
-The first controlled experiment uses arithmetic because generation is unlimited and verification is exact.
+Experiment 001 compares three arithmetic-training regimes under the same model-token budget:
 
-Three regimes will be compared under equal training-token budgets:
-
-1. static supervised fine-tuning;
+1. frozen static supervised fine-tuning;
 2. adaptive curriculum training;
-3. adaptive error/counterexample-focused training.
+3. adaptive error-focused training.
 
-The point is not to invent arithmetic. The point is to measure whether generated, responsive curricula can buy more capability per token than static examples.
+Arithmetic is deliberately unglamorous: generation is unlimited and correctness is exact. That lets the training method fail without hiring a neural judge to explain away the corpse.
 
 See [experiments/001-arithmetic-curriculum](experiments/001-arithmetic-curriculum/README.md).
+
+## Run it
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+pip install -e '.[train,test]'
+pytest
+onwordly-arithmetic
+```
+
+The default manifest uses `Qwen/Qwen2.5-0.5B`. Edit `experiments/001-arithmetic-curriculum/manifest.json` to change the model, token budget, task distribution, or seeds.
+
+Generated datasets and results are written beneath `results/` and intentionally ignored by git.
 
 ## Repository map
 
 - `docs/research-program.md` — research thesis, principles, and phases.
-- `docs/novelty-ledger.md` — what is established, what is merely combined here, and what is actually being tested.
-- `experiments/` — controlled experiments and results.
-- `src/onwordly/` — reusable task generators, verifiers, curricula, and training components.
-- `tests/` — deterministic tests for the machinery.
+- `docs/novelty-ledger.md` — prior art versus actual Onwordly hypotheses.
+- `experiments/` — experiment specifications and manifests.
+- `src/onwordly/datasets/` — frozen baseline dataset generation.
+- `src/onwordly/tasks/` — task generators.
+- `src/onwordly/verifiers/` — exact/programmatic verification.
+- `src/onwordly/curricula/` — adaptive curriculum logic.
+- `src/onwordly/training/` — task sources, equal-token harness, and evaluation.
+- `src/onwordly/models/` — model-independent adapter interface and backends.
+- `tests/` — deterministic tests for the experimental machinery.
 
 ## Status
 
-The repository has been initialized. Experiment 001 now has a working arithmetic task generator, exact verifier, and adaptive curriculum scheduler. Model training integration is next.
+Experiment 001 now has a complete first-pass pipeline: frozen baseline generation, adaptive and error-focused task sources, exact verification, a model adapter, strict token-budget accounting, evaluation, manifests, and JSON result serialization.
+
+The next work is empirical: run the controlled experiment, inspect failure modes, and only then complicate the machinery.
