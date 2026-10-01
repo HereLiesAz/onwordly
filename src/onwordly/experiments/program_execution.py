@@ -8,7 +8,11 @@ from time import perf_counter
 from typing import Callable, Sequence
 
 from onwordly.curricula.program_execution import AdaptiveProgramCurriculum
-from onwordly.datasets.program_execution import build_static_program_dataset, write_program_jsonl
+from onwordly.datasets.program_execution import (
+    build_program_transition_dataset,
+    build_static_program_dataset,
+    write_program_jsonl,
+)
 from onwordly.experiments.program_manifest import ProgramExperimentManifest
 from onwordly.models.base import ModelAdapter
 from onwordly.models.huggingface import HuggingFaceCausalLMAdapter
@@ -45,6 +49,7 @@ def _source(regime: str, manifest: ProgramExperimentManifest, static_tasks):
         argument_max=manifest.argument_max,
         partition="train",
         partition_modulus=manifest.holdout_modulus,
+        forbidden_transitions=(manifest.withheld_transition,),
     )
     if regime == "adaptive":
         return OnlineProgramSource(curriculum)
@@ -97,6 +102,7 @@ def run_program_experiment(
         size=manifest.evaluation_size,
         lengths=manifest.lengths,
         partition="eval",
+        forbidden_transitions=(manifest.withheld_transition,),
         **common,
     )
     longer = build_static_program_dataset(
@@ -104,6 +110,14 @@ def run_program_experiment(
         size=manifest.evaluation_size,
         lengths=manifest.out_of_range_lengths,
         partition="eval",
+        forbidden_transitions=(manifest.withheld_transition,),
+        **common,
+    )
+    transition_holdout = build_program_transition_dataset(
+        seed=manifest.evaluation_seed + 2,
+        size=manifest.evaluation_size,
+        transition=manifest.withheld_transition,
+        lengths=manifest.lengths,
         **common,
     )
     checkpoints = heldout[: manifest.checkpoint_evaluation_size]
@@ -111,6 +125,10 @@ def run_program_experiment(
     write_program_jsonl(train, output / "static-train.jsonl")
     write_program_jsonl(heldout, output / "evaluation-heldout.jsonl")
     write_program_jsonl(longer, output / "evaluation-longer-programs.jsonl")
+    write_program_jsonl(
+        transition_holdout,
+        output / "evaluation-withheld-transition.jsonl",
+    )
 
     factory = create_adapter or _factory(manifest)
     result: dict[str, object] = {
@@ -150,6 +168,7 @@ def run_program_experiment(
         eval_started = perf_counter()
         heldout_result = evaluate_programs(adapter, heldout)
         longer_result = evaluate_programs(adapter, longer)
+        transition_result = evaluate_programs(adapter, transition_holdout)
         _sync(adapter)
         eval_seconds = perf_counter() - eval_started
         peak_reader = getattr(adapter, "peak_memory_bytes", None)
@@ -165,10 +184,13 @@ def run_program_experiment(
             "evaluation": {
                 "heldout": heldout_result.to_dict(),
                 "longer_programs": longer_result.to_dict(),
+                "withheld_transition": transition_result.to_dict(),
             },
             "measurement_overhead": {
                 "checkpoint_generation_calls": checkpoint_calls,
-                "final_evaluation_generation_calls": len(heldout) + len(longer),
+                "final_evaluation_generation_calls": (
+                    len(heldout) + len(longer) + len(transition_holdout)
+                ),
                 "checkpoint_seconds": checkpoint_seconds,
                 "final_evaluation_seconds": eval_seconds,
                 "regime_wall_seconds": perf_counter() - wall_started,

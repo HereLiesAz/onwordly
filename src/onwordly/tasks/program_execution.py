@@ -218,6 +218,17 @@ def generate_program_task(
     return make_program_task(instructions)
 
 
+def program_contains_transition(
+    task: ProgramTask,
+    transition: tuple[InstructionName, InstructionName],
+) -> bool:
+    first, second = transition
+    return any(
+        left.name == first and right.name == second
+        for left, right in zip(task.instructions, task.instructions[1:])
+    )
+
+
 def program_partition(
     task: ProgramTask,
     *,

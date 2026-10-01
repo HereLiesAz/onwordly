@@ -30,13 +30,13 @@ whole programs into train/eval sets.
 
 - adaptive and error-focused curricula over program length;
 - equal-token static/adaptive/error-focused runner;
-- held-out and longer-program evaluation;
+- held-out, longer-program, and withheld adjacent-instruction-transition evaluation;
 - full and smoke manifests;
 - repeated-seed suite;
 - Kaggle single/suite execution support.
 
 ## Next
 
-1. add unseen instruction-composition evaluation;
-2. smoke test the runner;
+1. smoke test the runner;
+2. inspect the withheld `MUL -> NEG` transition split and confirm training never contains that adjacency;
 3. run one full seed before spending on repeated seeds.

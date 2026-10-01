@@ -10,6 +10,7 @@ from onwordly.tasks.program_execution import (
     ProgramPartition,
     ProgramTask,
     generate_program_task,
+    program_contains_transition,
     program_partition,
 )
 
@@ -42,6 +43,9 @@ class AdaptiveProgramCurriculum:
         prior_correct: int = 2,
         partition: ProgramPartition | None = None,
         partition_modulus: int = 5,
+        forbidden_transitions: Sequence[
+            tuple[InstructionName, InstructionName]
+        ] = (),
     ) -> None:
         if not lengths or min(lengths) < 1:
             raise ValueError("lengths must contain positive values")
@@ -57,6 +61,7 @@ class AdaptiveProgramCurriculum:
         self.prior_correct = prior_correct
         self.partition = partition
         self.partition_modulus = partition_modulus
+        self.forbidden_transitions = tuple(forbidden_transitions)
         self.buckets = tuple(ProgramBucket(length) for length in lengths)
         self.stats = {bucket: ProgramBucketStats() for bucket in self.buckets}
 
@@ -78,6 +83,11 @@ class AdaptiveProgramCurriculum:
         )[0]
 
     def accepts(self, task: ProgramTask) -> bool:
+        if any(
+            program_contains_transition(task, transition)
+            for transition in self.forbidden_transitions
+        ):
+            return False
         return (
             self.partition is None
             or program_partition(task, modulus=self.partition_modulus) == self.partition

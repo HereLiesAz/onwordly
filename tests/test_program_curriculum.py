@@ -5,7 +5,12 @@ from onwordly.curricula.program_execution import (
     ProgramBucket,
     UniformProgramCurriculum,
 )
-from onwordly.tasks.program_execution import Instruction, make_program_task, program_partition
+from onwordly.tasks.program_execution import (
+    Instruction,
+    make_program_task,
+    program_contains_transition,
+    program_partition,
+)
 from onwordly.training.program_sources import ErrorFocusedProgramSource
 
 
@@ -24,10 +29,18 @@ def test_program_adaptive_weights_weaker_length_higher() -> None:
 
 
 def test_program_uniform_respects_partition() -> None:
-    curriculum = UniformProgramCurriculum(lengths=(4,), partition="train")
+    curriculum = UniformProgramCurriculum(
+        lengths=(4,),
+        partition="train",
+        forbidden_transitions=(("MUL", "NEG"),),
+    )
     rng = Random(8)
     tasks = [curriculum.generate(rng) for _ in range(40)]
     assert all(program_partition(task) == "train" for task in tasks)
+    assert all(
+        not program_contains_transition(task, ("MUL", "NEG"))
+        for task in tasks
+    )
 
 
 def test_program_error_focus_queues_nearby_variants() -> None:

@@ -9,7 +9,7 @@ fixed, and what evidence it is allowed to support.
 | 002 | Arithmetic mechanism ablation | static / online-uniform / adaptive / error-focused-uniform / error-focused-adaptive | same arithmetic controls | single Kaggle ablation running; repeated suite gated |
 | 003 | Symbolic transformations | static / adaptive / error-focused | held-out sequences; longer sequences; unseen two-step composition | runner, smoke/full manifests, suite and Kaggle path prepared |
 | 004 | Constrained strings | static / adaptive / error-focused | held-out strings; longer strings | runner, smoke/full manifests, suite and Kaggle path prepared |
-| 005 | Stateful program execution | static / adaptive / error-focused | held-out programs; longer programs | runner, smoke/full manifests, suite and Kaggle path prepared |
+| 005 | Stateful program execution | static / adaptive / error-focused | held-out programs; longer programs; withheld adjacent instruction transition | runner, smoke/full manifests, suite and Kaggle path prepared |
 | 006 | Formal logic | static / adaptive / error-focused | held-out formulas; deeper formulas | runner, smoke/full manifests, suite and Kaggle path prepared |
 | 007 | Exact process supervision | outcome-only / trace-supervised | final answer; exact machine-state trace | smoke/full ablation scaffold prepared; no real-model run |
 

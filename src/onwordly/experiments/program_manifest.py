@@ -23,6 +23,7 @@ class ProgramExperimentManifest:
     lengths: tuple[int, ...]
     out_of_range_lengths: tuple[int, ...]
     operations: tuple[str, ...]
+    withheld_transition: tuple[str, str]
     argument_min: int
     argument_max: int
     variants_per_failure: int
@@ -31,7 +32,12 @@ class ProgramExperimentManifest:
     @classmethod
     def from_json(cls, path: str | Path) -> "ProgramExperimentManifest":
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        for key in ("lengths", "out_of_range_lengths", "operations"):
+        for key in (
+            "lengths",
+            "out_of_range_lengths",
+            "operations",
+            "withheld_transition",
+        ):
             payload[key] = tuple(payload[key])
         manifest = cls(**payload)
         manifest.validate()
@@ -48,6 +54,13 @@ class ProgramExperimentManifest:
             raise ValueError("out_of_range_lengths must be above training lengths")
         if not self.operations or not set(self.operations).issubset(INSTRUCTION_NAMES):
             raise ValueError("operations contain an unsupported instruction")
+        if (
+            len(self.withheld_transition) != 2
+            or not set(self.withheld_transition).issubset(self.operations)
+        ):
+            raise ValueError(
+                "withheld_transition must contain two available instructions"
+            )
         if self.argument_min > self.argument_max:
             raise ValueError("argument_min cannot exceed argument_max")
         if self.checkpoint_evaluation_size < 1 or self.checkpoint_evaluation_size > self.evaluation_size:

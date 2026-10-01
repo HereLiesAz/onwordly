@@ -28,5 +28,9 @@
   "argument_min": -9,
   "argument_max": 9,
   "variants_per_failure": 4,
-  "holdout_modulus": 5
+  "holdout_modulus": 5,
+  "withheld_transition": [
+    "MUL",
+    "NEG"
+  ]
 }

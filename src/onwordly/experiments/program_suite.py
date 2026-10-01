@@ -52,6 +52,7 @@ def run_program_suite(
     for regime_name in PROGRAM_REGIMES:
         heldout = []
         longer = []
+        transition = []
         tokens = []
         examples = []
         seconds = []
@@ -59,11 +60,16 @@ def run_program_suite(
             regime = run["regimes"][regime_name]
             heldout.append(float(regime["evaluation"]["heldout"]["accuracy"]))
             longer.append(float(regime["evaluation"]["longer_programs"]["accuracy"]))
+            transition.append(float(regime["evaluation"]["withheld_transition"]["accuracy"]))
             tokens.append(float(regime["training"]["training_tokens"]))
             examples.append(float(regime["training"]["examples_trained"]))
             seconds.append(float(regime["measurement_overhead"]["regime_wall_seconds"]))
         aggregate["regimes"][regime_name] = {
-            "accuracy": {"heldout": _summary(heldout), "longer_programs": _summary(longer)},
+            "accuracy": {
+                "heldout": _summary(heldout),
+                "longer_programs": _summary(longer),
+                "withheld_transition": _summary(transition),
+            },
             "training_tokens": _summary(tokens),
             "examples_trained": _summary(examples),
             "regime_wall_seconds": _summary(seconds),

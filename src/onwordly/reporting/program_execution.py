@@ -18,16 +18,18 @@ def render_program_result(path: str | Path) -> str:
             "",
             f"Runs: {aggregate['runs']}",
             "",
-            "| Regime | Held-out mean ± sd | Longer-program mean ± sd | Mean wall seconds |",
-            "| --- | ---: | ---: | ---: |",
+            "| Regime | Held-out mean ± sd | Longer-program mean ± sd | Withheld-transition mean ± sd | Mean wall seconds |",
+            "| --- | ---: | ---: | ---: | ---: |",
         ]
         for name in payload["regime_order"]:
             regime = aggregate["regimes"][name]
             heldout = regime["accuracy"]["heldout"]
             longer = regime["accuracy"]["longer_programs"]
+            transition = regime["accuracy"]["withheld_transition"]
             lines.append(
                 f"| {name} | {_pct(heldout['mean'])} ± {_pct(heldout['stddev'])} | "
                 f"{_pct(longer['mean'])} ± {_pct(longer['stddev'])} | "
+                f"{_pct(transition['mean'])} ± {_pct(transition['stddev'])} | "
                 f"{regime['regime_wall_seconds']['mean']:.2f} |"
             )
         return "\n".join(lines) + "\n"
@@ -35,14 +37,15 @@ def render_program_result(path: str | Path) -> str:
     lines = [
         "# Program execution results",
         "",
-        "| Regime | Held-out | Longer programs | Train tokens | Examples |",
-        "| --- | ---: | ---: | ---: | ---: |",
+        "| Regime | Held-out | Longer programs | Withheld transition | Train tokens | Examples |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name in payload["regime_order"]:
         regime = payload["regimes"][name]
         lines.append(
             f"| {name} | {_pct(regime['evaluation']['heldout']['accuracy'])} | "
             f"{_pct(regime['evaluation']['longer_programs']['accuracy'])} | "
+            f"{_pct(regime['evaluation']['withheld_transition']['accuracy'])} | "
             f"{regime['training']['training_tokens']} | "
             f"{regime['training']['examples_trained']} |"
         )
