@@ -12,7 +12,7 @@ The repository deliberately separates **established techniques** from **new hypo
 
 The first controlled experiment compares frozen static SFT, adaptive curriculum training, and adaptive error-focused training under the same training-token budget.
 
-It includes deterministic train/eval partitioning, periodic checkpoints, withheld prompt-form tests, out-of-range digit tests, resource accounting, and repeated-seed aggregation.
+It includes deterministic train/eval partitioning, periodic checkpoints, a prompt-transfer-only split, a joint heldout+prompt split, out-of-range digit tests, duplicate-rate diagnostics, synchronized resource accounting, peak-memory capture, and repeated-seed aggregation.
 
 The first real-model run is currently executing on Kaggle GPU through the central workflow controller.
 

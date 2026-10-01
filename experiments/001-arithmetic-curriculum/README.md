@@ -38,15 +38,18 @@ The frozen static baseline, online adaptive generator, and error-focused variant
 
 The harness asks the active model adapter for the exact number of prompt + supervised-target tokens before each update. An example is trained only if the entire example fits inside the remaining budget. The adapter must report the same count after training or the run fails.
 
-Checkpoint evaluation costs are recorded separately from the training-token budget and are identical in schedule and evaluation set across regimes.
+Checkpoint evaluation costs are recorded separately from the training-token budget and are identical in schedule and evaluation set across regimes. Accelerator timing is synchronized when the adapter supports it, peak CUDA memory is recorded when available, model-load and end-to-end regime wall time are separated, and checkpoint capability gain is normalized per million training tokens.
 
 ## Evaluation
 
-The experiment uses three frozen evaluation splits:
+The experiment uses four frozen evaluation splits:
 
 1. **heldout** — unseen operand combinations, canonical training prompt form, trained digit range;
-2. **withheld_prompts** — unseen operand combinations and prompt forms never used for training;
-3. **out_of_range** — unseen operand combinations one digit range beyond training.
+2. **prompt_transfer_only** — training-partition operand combinations rendered in prompt forms never used for training, isolating prompt-form transfer;
+3. **withheld_prompts** — unseen operand combinations and unseen prompt forms together;
+4. **out_of_range** — unseen operand combinations one digit range beyond training.
+
+Generated dataset files also record logical-identity duplication statistics so small arithmetic buckets cannot silently masquerade as thousands of unique examples.
 
 During training, a smaller frozen subset of the held-out split is evaluated at token checkpoints. This yields accuracy-vs-training-token curves and tokens-to-70/80/90/95%-accuracy measurements without exposing evaluation results to the curriculum.
 
@@ -71,6 +74,13 @@ During training, a smaller frozen subset of the held-out split is evaluated at t
 ```bash
 pip install -e '.[train,test]'
 pytest
+
+# Cheap end-to-end adapter smoke test before spending a full run.
+onwordly-arithmetic \
+  --manifest experiments/001-arithmetic-curriculum/smoke-manifest.json \
+  --output results/001-arithmetic-curriculum-smoke
+
+# Full experiment.
 onwordly-arithmetic
 ```
 
