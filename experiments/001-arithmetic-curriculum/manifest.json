@@ -1,0 +1,14 @@
+{
+  "model_name": "Qwen/Qwen2.5-0.5B",
+  "token_budget": 100000,
+  "static_dataset_size": 10000,
+  "evaluation_size": 1000,
+  "dataset_seed": 1101,
+  "evaluation_seed": 2202,
+  "training_seed": 3303,
+  "learning_rate": 0.00002,
+  "max_new_tokens": 16,
+  "digit_levels": [1, 2, 3],
+  "operations": ["add", "subtract", "multiply"],
+  "variants_per_failure": 4
+}

@@ -4,6 +4,11 @@
 .env
 .env.*
 !.env.example
+.venv/
+.pytest_cache/
+__pycache__/
+*.egg-info/
 build/
 dist/
 out/
+results/
