@@ -59,4 +59,12 @@ def test_process_supervision_ablation_uses_equal_token_ceiling(tmp_path) -> None
     assert set(result["regimes"]) == {"outcome-only", "trace-supervised"}
     for regime in result["regimes"].values():
         assert regime["training"]["training_tokens"] <= manifest.token_budget
+        assert regime["training"]["mean_training_tokens_per_example"] is not None
+        assert regime["training_exposure"]["program_pool_size"] == manifest.static_dataset_size
+        assert regime["training_exposure"]["examples_trained"] == regime["training"]["examples_trained"]
         assert set(regime["evaluation"]) == {"final_answer", "exact_trace"}
+
+    comparison = result["comparison"]
+    assert comparison["training_token_budget_equal"] is True
+    assert comparison["trace_to_outcome_first_pass_token_ratio"] > 1
+    assert comparison["trace_examples_trained"] < comparison["outcome_examples_trained"]
