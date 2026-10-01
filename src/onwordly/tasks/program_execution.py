@@ -39,10 +39,12 @@ class ProgramTask:
         return "; ".join(instruction.render() for instruction in self.instructions)
 
 
-def execute_program(instructions: Sequence[Instruction]) -> int:
+def execute_program_trace(instructions: Sequence[Instruction]) -> tuple[int, ...]:
+    """Return the accumulator state after each exact program step."""
     if not instructions:
         raise ValueError("program cannot be empty")
     accumulator = 0
+    states: list[int] = []
     for instruction in instructions:
         if instruction.name == "SET":
             if instruction.argument is None:
@@ -66,7 +68,12 @@ def execute_program(instructions: Sequence[Instruction]) -> int:
             accumulator = -accumulator
         else:
             raise ValueError(f"unsupported instruction: {instruction.name}")
-    return accumulator
+        states.append(accumulator)
+    return tuple(states)
+
+
+def execute_program(instructions: Sequence[Instruction]) -> int:
+    return execute_program_trace(instructions)[-1]
 
 
 def make_program_task(instructions: Sequence[Instruction]) -> ProgramTask:
@@ -82,6 +89,51 @@ def make_program_task(instructions: Sequence[Instruction]) -> ProgramTask:
         prompt=prompt,
         answer=answer,
         instructions=normalized,
+        length=len(normalized),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ProgramTraceTask:
+    prompt: str
+    answer: str
+    instructions: tuple[Instruction, ...]
+    states: tuple[int, ...]
+    length: int
+
+    @property
+    def target_text(self) -> str:
+        return self.answer
+
+    @property
+    def bucket_key(self) -> str:
+        return f"program-trace:{self.length}"
+
+
+def format_program_trace(states: Sequence[int]) -> str:
+    if not states:
+        raise ValueError("trace cannot be empty")
+    return ",".join(str(state) for state in states)
+
+
+def make_program_trace_task(
+    instructions: Sequence[Instruction],
+) -> ProgramTraceTask:
+    normalized = tuple(instructions)
+    states = execute_program_trace(normalized)
+    program_text = "; ".join(instruction.render() for instruction in normalized)
+    answer = format_program_trace(states)
+    prompt = (
+        "Execute this accumulator program from left to right. The accumulator starts at 0. "
+        "SET replaces it, ADD/SUB/MUL apply the integer argument, and NEG changes its sign. "
+        f"Program: {program_text}. Return the accumulator state after every instruction "
+        "as comma-separated integers, with no spaces or explanation."
+    )
+    return ProgramTraceTask(
+        prompt=prompt,
+        answer=answer,
+        instructions=normalized,
+        states=states,
         length=len(normalized),
     )
 

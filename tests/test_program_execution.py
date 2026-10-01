@@ -5,11 +5,17 @@ from onwordly.datasets.program_execution import build_static_program_dataset
 from onwordly.tasks.program_execution import (
     Instruction,
     execute_program,
+    execute_program_trace,
     generate_program_task,
     make_program_task,
+    make_program_trace_task,
     program_partition,
 )
-from onwordly.verifiers.program_execution import verify_program_answer
+from onwordly.verifiers.program_execution import (
+    parse_program_trace,
+    verify_program_answer,
+    verify_program_trace,
+)
 
 
 def test_program_execution_is_exact() -> None:
@@ -58,3 +64,27 @@ def test_make_program_task_renders_prompt() -> None:
     task = make_program_task((Instruction("SET", 2), Instruction("MUL", 3)))
     assert task.answer == 6
     assert "SET 2; MUL 3" in task.prompt
+
+
+def test_program_trace_is_exact_and_step_aligned() -> None:
+    program = (
+        Instruction("SET", 3),
+        Instruction("ADD", 4),
+        Instruction("MUL", 2),
+        Instruction("NEG"),
+        Instruction("SUB", 1),
+    )
+    assert execute_program_trace(program) == (3, 7, 14, -14, -15)
+    task = make_program_trace_task(program)
+    assert task.answer == "3,7,14,-14,-15"
+    assert verify_program_trace(task, task.answer)
+
+
+def test_program_trace_verifier_rejects_explanation_and_missing_steps() -> None:
+    task = make_program_trace_task(
+        (Instruction("SET", 2), Instruction("ADD", 3), Instruction("NEG"))
+    )
+    assert parse_program_trace("2,5,-5") == (2, 5, -5)
+    assert parse_program_trace("2, 5,-5") is None
+    assert not verify_program_trace(task, "5,-5")
+    assert not verify_program_trace(task, "states: 2,5,-5")

@@ -69,6 +69,10 @@ Generate nearby failures, minimal perturbations, adversarial variants, and repai
 
 Add structured intermediate states only where outcome supervision cannot localize failure cheaply.
 
+The first prepared substrate is the accumulator-machine domain, where every
+intermediate state can be computed exactly. This permits an outcome-only versus
+trace-supervised comparison without learned judges.
+
 ### Phase 4 — search and distillation
 
 Use expensive search during training to discover verified trajectories, then distill those trajectories into the small model so deployment remains cheap.
