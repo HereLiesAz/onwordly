@@ -46,23 +46,33 @@ Each regime records exact training tokens, examples trained, training-time gener
 
 That file currently contains only instructions because no real model result exists yet.
 
-## Current blocker
+## Current execution
 
-The repository is registered with the central workflow controller and `.github/workflows/ci.yml` is actively bound to the shared `ci-validation.yml` executor.
+The repository is registered with the central workflow controller. Normal CI is bound to shared `ci-validation.yml` and has passed on Python 3.10, 3.11, and 3.12.
 
-Centralization has been verified end-to-end. On a normal Onwordly push, the repository tracker located central run `36828714192`; shared Python validation passed on Python 3.10, 3.11, and 3.12, and the tracker run `36828698406` completed successfully.
+A second curated binding, `.github/workflows/experiment.yml`, now uses the same generalized Python executor with a dedicated experiment purpose profile and artifact capture.
 
-A real model run has not yet been completed. Attempts to launch both CPU and GPU Hugging Face Jobs from the connected account returned HTTP **402 Payment Required**. The connected environment therefore cannot currently execute the Qwen experiment.
+The first real `Qwen/Qwen2.5-0.5B` Experiment 001 run is **in progress** on GitHub-hosted compute:
+
+- trigger commit: `d5a8709d52ab0667808d1965249eb61084155b06`
+- target tracker run: `36830759421`
+- central experiment run: `36830779628`
+- central Python job: `110266672672`
+- result artifact path: `results/001-arithmetic-curriculum/**`
+
+Hugging Face Jobs remains unavailable because the connected account returned HTTP 402, so GitHub-hosted CPU compute is being used for this first run.
 
 ## Exact next actions
 
-1. Obtain compute for `Qwen/Qwen2.5-0.5B`.
-2. Run one seed with `onwordly-arithmetic`.
+1. Wait for central run `36830779628` to finish.
+2. If it succeeds, inspect the uploaded result artifact and `summary.json`.
 3. Render and inspect the single-run report.
 4. If sane, run `onwordly-arithmetic-suite --seeds 3303 4404 5505`.
 5. Render the suite report into `experiments/001-arithmetic-curriculum/RESULTS.md`.
 6. Inspect `checkpoints.csv` and every seed before interpreting the aggregate.
 7. If an adaptive regime shows a repeatable advantage, design an ablation before adding PRMs, MCTS, or multi-agent language games.
+
+If the first run times out on the standard GitHub runner, preserve the failure evidence and optimize the execution path or move to GPU compute without changing the experimental comparison itself.
 
 ## Interpretation rule
 
