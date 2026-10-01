@@ -3,4 +3,4 @@ backend: kaggle
 accelerator: NvidiaTeslaT4
 model: Qwen/Qwen2.5-0.5B
 manifest: experiments/001-arithmetic-curriculum/manifest.json
-run: 2
+run: 3
