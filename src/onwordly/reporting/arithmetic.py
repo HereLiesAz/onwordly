@@ -28,15 +28,46 @@ def _regime_order(payload: dict[str, Any]) -> tuple[str, ...]:
     return tuple(regimes)
 
 
+def _evaluation_split_order(evaluation: dict[str, Any]) -> tuple[str, ...]:
+    preferred = (
+        "heldout",
+        "prompt_transfer_only",
+        "withheld_prompts",
+        "out_of_range",
+    )
+    return tuple(
+        split
+        for split in preferred
+        if split in evaluation
+    ) + tuple(
+        split
+        for split in evaluation
+        if split not in preferred
+    )
+
+
+def _split_label(split: str) -> str:
+    return {
+        "heldout": "Held-out",
+        "prompt_transfer_only": "Prompt transfer only",
+        "withheld_prompts": "Held-out + prompt transfer",
+        "out_of_range": "Out-of-range",
+    }.get(split, split.replace("_", " ").title())
+
+
 def render_single_run(summary: dict[str, Any]) -> str:
     title = "# Arithmetic experiment results"
+    first_regime = summary["regimes"][_regime_order(summary)[0]]
+    split_order = _evaluation_split_order(first_regime["evaluation"])
+    headers = ["Regime", *(_split_label(split) for split in split_order), "Train tokens", "Examples", "Total generation calls"]
+    aligns = ["---", *("---:" for _ in split_order), "---:", "---:", "---:"]
     lines = [
         title,
         "",
         "## Final evaluation",
         "",
-        "| Regime | Held-out | Withheld prompts | Out-of-range | Train tokens | Examples | Total generation calls |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(aligns) + " |",
     ]
 
     for regime_name in _regime_order(summary):
@@ -44,21 +75,16 @@ def render_single_run(summary: dict[str, Any]) -> str:
         evaluation = regime["evaluation"]
         training = regime["training"]
         overhead = regime["measurement_overhead"]
-        lines.append(
-            "| "
-            + " | ".join(
-                (
-                    regime_name,
-                    _pct(evaluation["heldout"]["accuracy"]),
-                    _pct(evaluation["withheld_prompts"]["accuracy"]),
-                    _pct(evaluation["out_of_range"]["accuracy"]),
-                    _num(training["training_tokens"]),
-                    _num(training["examples_trained"]),
-                    _num(overhead["total_generation_calls_including_evaluation"]),
-                )
+        cells = [regime_name]
+        cells.extend(_pct(evaluation[split]["accuracy"]) for split in split_order)
+        cells.extend(
+            (
+                _num(training["training_tokens"]),
+                _num(training["examples_trained"]),
+                _num(overhead["total_generation_calls_including_evaluation"]),
             )
-            + " |"
         )
+        lines.append("| " + " | ".join(cells) + " |")
 
     lines.extend(
         [
@@ -105,6 +131,12 @@ def render_suite(aggregate_payload: dict[str, Any]) -> str:
         or aggregate.get("regime_order")
         or aggregate["regimes"].keys()
     )
+    first_regime = aggregate["regimes"][regime_order[0]]
+    split_order = _evaluation_split_order(first_regime["accuracy"])
+    headers = ["Regime", *(
+        f"{_split_label(split)} mean ± sd"
+        for split in split_order
+    )]
     lines = [
         "# Arithmetic repeated-seed results",
         "",
@@ -112,14 +144,14 @@ def render_suite(aggregate_payload: dict[str, Any]) -> str:
         "",
         "## Final accuracy",
         "",
-        "| Regime | Held-out mean ± sd | Withheld prompts mean ± sd | Out-of-range mean ± sd |",
-        "| --- | ---: | ---: | ---: |",
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(["---", *("---:" for _ in split_order)]) + " |",
     ]
 
     for regime_name in regime_order:
         regime = aggregate["regimes"][regime_name]
         cells = []
-        for split in ("heldout", "withheld_prompts", "out_of_range"):
+        for split in split_order:
             stats = regime["accuracy"][split]
             cells.append(f"{_pct(stats['mean'])} ± {_pct(stats['stddev'])}")
         lines.append(f"| {regime_name} | " + " | ".join(cells) + " |")
@@ -160,7 +192,6 @@ def render_suite(aggregate_payload: dict[str, Any]) -> str:
         ]
     )
     return "\n".join(lines)
-
 
 def render_result(path: str | Path) -> str:
     source = Path(path)

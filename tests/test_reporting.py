@@ -10,6 +10,7 @@ def test_render_single_run(tmp_path) -> None:
             name: {
                 "evaluation": {
                     "heldout": {"accuracy": 0.5},
+                    "prompt_transfer_only": {"accuracy": 0.45},
                     "withheld_prompts": {"accuracy": 0.4},
                     "out_of_range": {"accuracy": 0.3},
                 },
@@ -36,6 +37,7 @@ def test_render_single_run(tmp_path) -> None:
     rendered = render_result(path)
     assert "# Arithmetic experiment results" in rendered
     assert "50.00%" in rendered
+    assert "Prompt transfer only" in rendered
     assert "error-focused" in rendered
 
 
@@ -43,7 +45,7 @@ def test_render_suite(tmp_path) -> None:
     regime = {
         "accuracy": {
             split: {"mean": 0.5, "stddev": 0.1, "min": 0.4, "max": 0.6, "runs": 3}
-            for split in ("heldout", "withheld_prompts", "out_of_range")
+            for split in ("heldout", "prompt_transfer_only", "withheld_prompts", "out_of_range")
         },
         "training_tokens": {"mean": 100.0},
         "examples_trained": {"mean": 5.0},
@@ -83,6 +85,7 @@ def test_render_ablation_uses_declared_order(tmp_path) -> None:
             name: {
                 "evaluation": {
                     "heldout": {"accuracy": 0.1},
+                    "prompt_transfer_only": {"accuracy": 0.1},
                     "withheld_prompts": {"accuracy": 0.1},
                     "out_of_range": {"accuracy": 0.1},
                 },

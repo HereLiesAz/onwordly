@@ -61,3 +61,5 @@ def test_suite_aggregates_repeated_runs(tmp_path) -> None:
     assert (tmp_path / "checkpoints.csv").exists()
     assert (tmp_path / "seed-3" / "summary.json").exists()
     assert (tmp_path / "seed-4" / "summary.json").exists()
+    for regime in result["aggregate"]["regimes"].values():
+        assert "prompt_transfer_only" in regime["accuracy"]

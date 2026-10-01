@@ -87,6 +87,24 @@ def task_in_partition(
     ) == partition
 
 
+def arithmetic_task_identity(
+    task: ArithmeticTask,
+    *,
+    include_prompt_style: bool = False,
+) -> tuple[str, int, int] | tuple[str, int, int, str]:
+    """Return a stable logical identity for duplicate/leakage diagnostics.
+
+    Commutative operations share one operand identity regardless of presentation
+    order. Prompt style can optionally be included when the presented example,
+    rather than the underlying arithmetic problem, is the unit of analysis.
+    """
+    left, right = _partition_operands(task.left, task.right, task.operation)
+    base: tuple[str, int, int] = (task.operation, left, right)
+    if include_prompt_style:
+        return (*base, task.prompt_style)
+    return base
+
+
 def _format_prompt(
     left: int,
     right: int,

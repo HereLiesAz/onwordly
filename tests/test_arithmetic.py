@@ -2,6 +2,7 @@ from random import Random
 
 from onwordly.tasks.arithmetic import (
     arithmetic_partition,
+    arithmetic_task_identity,
     generate_arithmetic_task,
     make_arithmetic_task,
 )
@@ -47,3 +48,12 @@ def test_prompt_styles_preserve_answer() -> None:
 def test_commutative_reverse_cannot_cross_partition() -> None:
     assert arithmetic_partition(17, 9, "add") == arithmetic_partition(9, 17, "add")
     assert arithmetic_partition(17, 9, "multiply") == arithmetic_partition(9, 17, "multiply")
+
+
+def test_task_identity_normalizes_commutative_order() -> None:
+    forward = make_arithmetic_task(17, 9, "add", prompt_style="canonical")
+    reverse = make_arithmetic_task(9, 17, "add", prompt_style="question")
+    assert arithmetic_task_identity(forward) == arithmetic_task_identity(reverse)
+    assert arithmetic_task_identity(
+        forward, include_prompt_style=True
+    ) != arithmetic_task_identity(reverse, include_prompt_style=True)

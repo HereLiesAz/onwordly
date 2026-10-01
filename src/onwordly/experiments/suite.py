@@ -38,10 +38,10 @@ def aggregate_suite(run_results: list[dict[str, object]]) -> dict[str, object]:
     }
 
     for regime_name in regime_names:
+        first_regime = run_results[0]["regimes"][regime_name]
         split_accuracies: dict[str, list[float]] = {
-            "heldout": [],
-            "withheld_prompts": [],
-            "out_of_range": [],
+            split_name: []
+            for split_name in first_regime["evaluation"]
         }
         training_tokens: list[float] = []
         examples_trained: list[float] = []

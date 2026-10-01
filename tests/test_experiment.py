@@ -53,12 +53,14 @@ def test_experiment_serializes_all_three_regimes(tmp_path) -> None:
     assert (tmp_path / "summary.json").exists()
     assert (tmp_path / "static-train.jsonl").exists()
     assert (tmp_path / "evaluation-heldout.jsonl").exists()
+    assert (tmp_path / "evaluation-prompt-transfer-only.jsonl").exists()
     assert (tmp_path / "evaluation-withheld-prompts.jsonl").exists()
     assert (tmp_path / "evaluation-out-of-range.jsonl").exists()
 
     for regime in result["regimes"].values():
         assert set(regime["evaluation"]) == {
             "heldout",
+            "prompt_transfer_only",
             "withheld_prompts",
             "out_of_range",
         }
@@ -67,3 +69,10 @@ def test_experiment_serializes_all_three_regimes(tmp_path) -> None:
 
     saved = json.loads((tmp_path / "summary.json").read_text())
     assert saved["manifest"]["token_budget"] == 25
+    assert set(saved["datasets"]) == {
+        "static_train",
+        "heldout",
+        "prompt_transfer_only",
+        "withheld_prompts",
+        "out_of_range",
+    }

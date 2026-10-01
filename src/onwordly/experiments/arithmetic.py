@@ -9,7 +9,11 @@ from typing import Callable, Sequence
 
 from onwordly.curricula.adaptive import AdaptiveArithmeticCurriculum
 from onwordly.curricula.uniform import UniformArithmeticCurriculum
-from onwordly.datasets.arithmetic import build_static_arithmetic_dataset, write_arithmetic_jsonl
+from onwordly.datasets.arithmetic import (
+    arithmetic_dataset_stats,
+    build_static_arithmetic_dataset,
+    write_arithmetic_jsonl,
+)
 from onwordly.experiments.manifest import ArithmeticExperimentManifest
 from onwordly.models.base import ModelAdapter
 from onwordly.models.huggingface import HuggingFaceCausalLMAdapter
@@ -112,11 +116,13 @@ def _tokens_to_threshold(
 
 def _serialize_evaluations(
     heldout: EvaluationResult,
+    prompt_transfer_only: EvaluationResult,
     withheld_prompts: EvaluationResult,
     out_of_range: EvaluationResult,
 ) -> dict[str, object]:
     return {
         "heldout": heldout.to_dict(),
+        "prompt_transfer_only": prompt_transfer_only.to_dict(),
         "withheld_prompts": withheld_prompts.to_dict(),
         "out_of_range": out_of_range.to_dict(),
     }
@@ -153,8 +159,17 @@ def run_experiment(
         partition="eval",
         partition_modulus=manifest.holdout_modulus,
     )
-    withheld_prompt_tasks = build_static_arithmetic_dataset(
+    prompt_transfer_tasks = build_static_arithmetic_dataset(
         seed=manifest.evaluation_seed + 1,
+        size=manifest.generalization_size,
+        operations=manifest.operations,
+        digit_levels=manifest.digit_levels,
+        prompt_styles=manifest.withheld_prompt_styles,
+        partition="train",
+        partition_modulus=manifest.holdout_modulus,
+    )
+    withheld_prompt_tasks = build_static_arithmetic_dataset(
+        seed=manifest.evaluation_seed + 2,
         size=manifest.generalization_size,
         operations=manifest.operations,
         digit_levels=manifest.digit_levels,
@@ -163,7 +178,7 @@ def run_experiment(
         partition_modulus=manifest.holdout_modulus,
     )
     out_of_range_tasks = build_static_arithmetic_dataset(
-        seed=manifest.evaluation_seed + 2,
+        seed=manifest.evaluation_seed + 3,
         size=manifest.generalization_size,
         operations=manifest.operations,
         digit_levels=manifest.out_of_range_digit_levels,
@@ -174,6 +189,10 @@ def run_experiment(
 
     write_arithmetic_jsonl(static_tasks, output / "static-train.jsonl")
     write_arithmetic_jsonl(heldout_tasks, output / "evaluation-heldout.jsonl")
+    write_arithmetic_jsonl(
+        prompt_transfer_tasks,
+        output / "evaluation-prompt-transfer-only.jsonl",
+    )
     write_arithmetic_jsonl(withheld_prompt_tasks, output / "evaluation-withheld-prompts.jsonl")
     write_arithmetic_jsonl(out_of_range_tasks, output / "evaluation-out-of-range.jsonl")
 
@@ -181,6 +200,13 @@ def run_experiment(
     results: dict[str, object] = {
         "manifest": asdict(manifest),
         "regime_order": list(regime_names),
+        "datasets": {
+            "static_train": arithmetic_dataset_stats(static_tasks),
+            "heldout": arithmetic_dataset_stats(heldout_tasks),
+            "prompt_transfer_only": arithmetic_dataset_stats(prompt_transfer_tasks),
+            "withheld_prompts": arithmetic_dataset_stats(withheld_prompt_tasks),
+            "out_of_range": arithmetic_dataset_stats(out_of_range_tasks),
+        },
         "regimes": {},
     }
 
@@ -215,11 +241,15 @@ def run_experiment(
 
         started = perf_counter()
         heldout = evaluate_arithmetic(adapter, heldout_tasks)
+        prompt_transfer = evaluate_arithmetic(adapter, prompt_transfer_tasks)
         withheld = evaluate_arithmetic(adapter, withheld_prompt_tasks)
         out_of_range = evaluate_arithmetic(adapter, out_of_range_tasks)
         final_evaluation_seconds = perf_counter() - started
         final_evaluation_calls = (
-            len(heldout_tasks) + len(withheld_prompt_tasks) + len(out_of_range_tasks)
+            len(heldout_tasks)
+            + len(prompt_transfer_tasks)
+            + len(withheld_prompt_tasks)
+            + len(out_of_range_tasks)
         )
         total_evaluation_calls = checkpoint_generation_calls + final_evaluation_calls
 
@@ -230,7 +260,12 @@ def run_experiment(
             },
             "training": training.to_dict(),
             "tokens_to_threshold": _tokens_to_threshold(training.checkpoints),
-            "evaluation": _serialize_evaluations(heldout, withheld, out_of_range),
+            "evaluation": _serialize_evaluations(
+                heldout,
+                prompt_transfer,
+                withheld,
+                out_of_range,
+            ),
             "measurement_overhead": {
                 "checkpoint_generation_calls": checkpoint_generation_calls,
                 "final_evaluation_generation_calls": final_evaluation_calls,
