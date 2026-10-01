@@ -52,62 +52,20 @@ Prepared run-plan combinations:
 
 Experiment 002 / suite is intentionally gated.
 
-## Current live runs
+## Current Kaggle execution state
 
-The old GitHub-hosted CPU experiment and earlier single-seed Kaggle revisions are superseded.
+The runs previously described as the canonical live Kaggle jobs were not actually running new kernels. Their submit steps returned `Kernel push error: Maximum batch GPU session count of 2 reached.` The old workflow failed to treat that textual Kaggle CLI error as a submission failure and then polled inaccessible kernel refs. Those GitHub-side Kaggle watcher jobs have now been canceled.
 
-The current canonical arithmetic runs are the independently isolated Kaggle jobs listed below:
+Two earlier remote submissions to `azwashere/onwordly-experiment-001` did succeed: version 1 reached RUNNING after its 10:58 UTC submission, and version 2 reached RUNNING after its 11:08 UTC submission. The public Kaggle status interface does not expose the session IDs needed for supported API cancellation, so do not claim those remote Kaggle sessions themselves were canceled without separate confirmation.
 
-- Experiment 001 repeated-seed suite — central run `36857400628`;
-- Experiment 002 five-regime ablation — central run `36857267229`.
+Fresh transparent restarts are queued:
 
-Both were submitted from pinned target revisions, so continued development on `main` does not alter their code or cancel them. GitHub currently shows both central jobs waiting on Kaggle, but that alone does **not** prove the Kaggle workers are actively executing. Treat them as submitted/polled until a Kaggle worker state or completed output is observed.
+- Experiment 001 repeated-seed suite — target commit `d0401506fd75437851012c6b576fad447bc88b24`, tracker `36873051697`, run-plan revision 9.
+- Experiment 002 five-regime ablation — target commit `ae7f715605aa9fca05f60624ef1fcf636d44abd7`, tracker `36873056937`, run-plan revision 10.
 
-## Experiment 001 repeated-seed suite
+The central runner now requires a positive Kaggle push confirmation, treats textual push errors as failures, fails on inaccessible/not-found status responses, limits repeated unknown states, records kernel URL/ref/target SHA/accelerator/submission time, uploads control metadata before polling, and emits timestamped state transitions.
 
-The suite is ready for Kaggle. To launch it after checking the first result, change `.kaggle-run` to:
-
-```text
-experiment: 001
-mode: suite
-backend: kaggle
-accelerator: NvidiaTeslaT4
-model: Qwen/Qwen2.5-0.5B
-manifest: experiments/001-arithmetic-curriculum/manifest.json
-seeds: 3303,4404,5505
-```
-
-The Kaggle runner will write:
-
-- one result directory per seed;
-- `aggregate.json`;
-- `checkpoints.csv`;
-- rendered `RESULTS.md`.
-
-## Experiment 002 prepared
-
-`experiments/002-adaptive-ablation/` is scaffolded but not yet promoted to a repeated real-model experiment.
-
-Its five regimes isolate:
-
-1. frozen static data;
-2. online-uniform generation;
-3. competence-responsive adaptive sampling;
-4. error-focused variants with uniform sampling;
-5. error-focused variants with adaptive sampling.
-
-This separates the contribution of fresh online data, competence response, and local hard-example generation.
-
-The underlying mechanisms remain established prior art; the experiment measures their contribution inside Onwordly rather than renaming them.
-
-## Current queued/running experiments
-
-Two real-model Kaggle jobs have now been launched instead of waiting serially:
-
-- **Experiment 001 repeated-seed suite** — target commit `408f441600348607cf852adc45cce5642a6dba7f`, central run `36857400628`; seeds 3303, 4404, 5505.
-- **Experiment 002 five-regime ablation** — target commit `7a382a4ffb9fab5ee4fe20842f7b862e7d366c85`, central run `36857267229`; Kaggle submission succeeded and the kernel is running.
-
-The central Kaggle executor now gives each Kaggle revision a unique kernel slug and uses target-SHA concurrency isolation, so long experiment revisions do not cancel each other.
+A queued GitHub tracker is not evidence of a live GPU experiment. Only a confirmed Kaggle push followed by QUEUED/RUNNING status counts.
 
 ## Work continuing while compute runs
 
@@ -128,11 +86,11 @@ The newer development commits are still queued for centralized CI behind the lon
 
 ## Exact next actions
 
-1. Keep Experiment 001 suite and Experiment 002 ablation isolated on their pinned target revisions; do not treat GitHub's polling step as proof that Kaggle compute is active.
-2. Inspect the Kaggle state/output as soon as the current pollers resolve. Future central Kaggle runs now expose explicit state transitions and fail bounded queue waits instead of silently looking alive for hours.
+1. Let transparent Experiment 001 run 9 and Experiment 002 run 10 dispatch through the fixed Kaggle runner; verify explicit successful-push output before calling either live.
+2. If Kaggle still reports the two-GPU-session ceiling, preserve the fail-fast evidence and wait for the older Kaggle sessions to finish or stop them through Kaggle once their session IDs are available.
 3. Inspect and fix the newest centralized CI result as soon as it executes.
 4. Smoke-test Experiments 003–006 before any full new-domain spend.
-5. Add any remaining composition-specific evaluation only where it measures a genuinely distinct generalization axis.
+5. Add composition-specific evaluation to Experiment 006; Experiments 003 and 004 already have composition splits, and Experiment 005 has a withheld-transition split.
 6. CI-validate and smoke-test Experiment 007's common-prompt outcome-vs-trace ablation; do not give it repeated-seed compute until target-token/example accounting is inspected.
 7. Only after cross-domain results exist decide whether search, distillation, or multi-agent language games deserve the next compute budget.
 
