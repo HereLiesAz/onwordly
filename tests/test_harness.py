@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 from onwordly.models.base import TrainStepMetrics
 from onwordly.tasks.arithmetic import make_arithmetic_task
+from onwordly.tasks.symbolic import make_symbolic_task
+from onwordly.verifiers.symbolic import verify_symbolic_answer
 from onwordly.training.harness import run_equal_token_training
 from onwordly.training.sources import StaticArithmeticSource
 
@@ -92,3 +94,27 @@ def test_harness_synchronizes_optional_accelerator_timing() -> None:
     )
     assert result.examples_trained > 0
     assert adapter.sync_calls >= result.examples_trained * 2
+
+
+def test_harness_accepts_non_arithmetic_trainable_tasks() -> None:
+    adapter = FakeAdapter()
+    task = make_symbolic_task("ABCD", "reverse")
+
+    class Source:
+        def next_task(self, rng):
+            del rng
+            return task
+
+        def observe(self, task, correct):
+            del task, correct
+
+    result = run_equal_token_training(
+        regime="symbolic",
+        adapter=adapter,
+        source=Source(),
+        token_budget=10,
+        seed=1,
+        verifier=verify_symbolic_answer,
+    )
+    assert result.examples_trained > 0
+    assert "reverse:4" in result.bucket_stats

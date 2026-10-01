@@ -7,12 +7,19 @@ from time import perf_counter
 from typing import Callable
 
 from onwordly.models.base import ModelAdapter
-from onwordly.tasks.arithmetic import ArithmeticTask
-from onwordly.training.sources import ArithmeticTaskSource
+from onwordly.tasks.base import TrainableTask
 from onwordly.verifiers.arithmetic import verify_arithmetic_answer
 
-Verifier = Callable[[ArithmeticTask, str], bool]
+Verifier = Callable[[TrainableTask, str], bool]
 CheckpointCallback = Callable[[int, int], dict[str, object]]
+
+
+class TaskSource:
+    def next_task(self, rng: Random) -> TrainableTask:
+        raise NotImplementedError
+
+    def observe(self, task: TrainableTask, correct: bool) -> None:
+        raise NotImplementedError
 
 
 def _synchronize_adapter(adapter: ModelAdapter) -> None:
@@ -61,7 +68,7 @@ def run_equal_token_training(
     *,
     regime: str,
     adapter: ModelAdapter,
-    source: ArithmeticTaskSource,
+    source: TaskSource,
     token_budget: int,
     seed: int,
     verifier: Verifier = verify_arithmetic_answer,
@@ -105,7 +112,7 @@ def run_equal_token_training(
 
     while True:
         task = source.next_task(rng)
-        target = str(task.answer)
+        target = task.target_text
         planned_tokens = adapter.count_training_tokens(task.prompt, target)
         if planned_tokens < 1:
             raise RuntimeError("adapter reported a non-positive training token count")
@@ -121,7 +128,7 @@ def run_equal_token_training(
         correct_before_train += int(correct)
         source.observe(task, correct)
 
-        bucket_key = f"{task.operation}:{task.digits}"
+        bucket_key = task.bucket_key
         bucket = buckets.setdefault(bucket_key, BucketRunStats())
         bucket.attempts += 1
         bucket.correct_before_train += int(correct)

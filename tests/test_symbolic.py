@@ -10,6 +10,7 @@ from onwordly.tasks.symbolic import (
     apply_symbolic_operation,
     generate_symbolic_task,
     make_symbolic_task,
+    symbolic_partition,
 )
 from onwordly.verifiers.symbolic import parse_symbolic_answer, verify_symbolic_answer
 
@@ -47,3 +48,22 @@ def test_symbolic_dataset_is_deterministic_balanced_and_roundtrips(tmp_path) -> 
 
     path = write_symbolic_jsonl(first, tmp_path / "symbolic.jsonl")
     assert read_symbolic_jsonl(path) == first
+
+
+def test_symbolic_dataset_partitions_do_not_cross() -> None:
+    train = build_static_symbolic_dataset(
+        seed=5,
+        size=40,
+        operations=("reverse",),
+        lengths=(6,),
+        partition="train",
+    )
+    evaluation = build_static_symbolic_dataset(
+        seed=6,
+        size=40,
+        operations=("reverse",),
+        lengths=(6,),
+        partition="eval",
+    )
+    assert all(symbolic_partition(task.symbols, task.operation) == "train" for task in train)
+    assert all(symbolic_partition(task.symbols, task.operation) == "eval" for task in evaluation)

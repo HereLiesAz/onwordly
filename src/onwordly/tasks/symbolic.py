@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import blake2b
 from random import Random
 from typing import Literal, Sequence
 
 SymbolicOperation = Literal["reverse", "sort", "dedupe_adjacent", "rotate_left"]
+SymbolicPartition = Literal["train", "eval"]
 
 SYMBOLIC_OPERATIONS: tuple[SymbolicOperation, ...] = (
     "reverse",
@@ -28,6 +30,38 @@ class SymbolicTask:
     operation: SymbolicOperation
     length: int
     symbols: str
+
+    @property
+    def target_text(self) -> str:
+        return self.answer
+
+    @property
+    def bucket_key(self) -> str:
+        return f"{self.operation}:{self.length}"
+
+
+def symbolic_partition(
+    symbols: str,
+    operation: SymbolicOperation,
+    *,
+    modulus: int = 5,
+) -> SymbolicPartition:
+    if modulus < 2:
+        raise ValueError("modulus must be at least 2")
+    key = f"{operation}:{symbols.upper()}".encode("utf-8")
+    residue = int.from_bytes(blake2b(key, digest_size=8).digest(), "big") % modulus
+    return "eval" if residue == 0 else "train"
+
+
+def symbolic_task_in_partition(
+    task: SymbolicTask,
+    partition: SymbolicPartition | None,
+    *,
+    modulus: int = 5,
+) -> bool:
+    if partition is None:
+        return True
+    return symbolic_partition(task.symbols, task.operation, modulus=modulus) == partition
 
 
 def apply_symbolic_operation(symbols: str, operation: SymbolicOperation) -> str:

@@ -9,8 +9,10 @@ from typing import Iterable, Sequence
 from onwordly.tasks.symbolic import (
     SYMBOLIC_OPERATIONS,
     SymbolicOperation,
+    SymbolicPartition,
     SymbolicTask,
     generate_symbolic_task,
+    symbolic_task_in_partition,
 )
 
 
@@ -21,6 +23,8 @@ def build_static_symbolic_dataset(
     operations: Iterable[SymbolicOperation] = SYMBOLIC_OPERATIONS,
     lengths: Iterable[int] = (4, 8, 12),
     alphabet: Sequence[str] = ("A", "B", "C", "D", "E"),
+    partition: SymbolicPartition | None = None,
+    partition_modulus: int = 5,
     shuffle: bool = True,
 ) -> tuple[SymbolicTask, ...]:
     if size < 1:
@@ -35,19 +39,31 @@ def build_static_symbolic_dataset(
     if any(length < 1 for _, length in buckets):
         raise ValueError("lengths must be positive")
 
+    if partition_modulus < 2:
+        raise ValueError("partition_modulus must be at least 2")
+
     rng = Random(seed)
-    tasks = [
-        generate_symbolic_task(
-            rng,
-            operation,
-            length,
-            alphabet=alphabet,
-        )
-        for operation, length in (
-            buckets[index % len(buckets)]
-            for index in range(size)
-        )
-    ]
+    tasks: list[SymbolicTask] = []
+    for index in range(size):
+        operation, length = buckets[index % len(buckets)]
+        for _ in range(10_000):
+            task = generate_symbolic_task(
+                rng,
+                operation,
+                length,
+                alphabet=alphabet,
+            )
+            if symbolic_task_in_partition(
+                task,
+                partition,
+                modulus=partition_modulus,
+            ):
+                tasks.append(task)
+                break
+        else:
+            raise RuntimeError(
+                "could not generate a symbolic task in the requested partition"
+            )
     if shuffle:
         rng.shuffle(tasks)
     return tuple(tasks)

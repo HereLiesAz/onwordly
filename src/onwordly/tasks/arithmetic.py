@@ -27,6 +27,14 @@ class ArithmeticTask:
     right: int
     prompt_style: PromptStyle = "canonical"
 
+    @property
+    def target_text(self) -> str:
+        return str(self.answer)
+
+    @property
+    def bucket_key(self) -> str:
+        return f"{self.operation}:{self.digits}"
+
 
 _SYMBOLS: dict[Operation, str] = {
     "add": "+",
