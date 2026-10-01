@@ -17,6 +17,7 @@ train = [
 
 [project.scripts]
 onwordly-arithmetic = "onwordly.experiments.arithmetic:main"
+onwordly-arithmetic-suite = "onwordly.experiments.suite:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

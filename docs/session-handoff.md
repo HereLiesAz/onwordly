@@ -18,26 +18,50 @@ Experiment 001 compares three arithmetic regimes:
 
 All three receive the same training-token budget and the same pre-update generation/check step.
 
+## Implemented safeguards and measurements
+
 ### Leakage control
 
-Operand combinations are deterministically partitioned into train/eval sets with a stable hash. For addition and multiplication, operand order is normalized before partitioning, so `2+3` cannot be held out while `3+2` leaks into training.
-
-Adaptive generation and error-focused variants are constrained to the training partition.
+Operand combinations are deterministically partitioned into train/eval sets with a stable hash. Addition and multiplication normalize operand order before partitioning, so reversed commutative forms cannot cross the split. Adaptive generation and error-focused variants are constrained to the training partition.
 
 ### Evaluation
 
-Experiment 001 now records:
+Each run records:
 
 - a baseline checkpoint at 0 training tokens;
-- periodic held-out checkpoints every configured token interval;
+- periodic held-out checkpoints;
 - a final held-out evaluation;
 - a final withheld-prompt-form evaluation;
 - a final out-of-range-digit evaluation;
 - first observed token count reaching 70%, 80%, 90%, and 95% checkpoint accuracy.
 
-Checkpoint evaluation uses a smaller frozen subset to keep measurement overhead tolerable. Checkpoint outcomes are never passed to the adaptive curriculum.
+Checkpoint outcomes are never passed to the adaptive curriculum.
 
-### Default configuration
+### Resource accounting
+
+Each regime records:
+
+- exact training tokens;
+- examples trained;
+- training-time generation calls;
+- verifier calls;
+- core training seconds;
+- checkpoint and final evaluation generation calls;
+- checkpoint and final evaluation seconds;
+- total generation calls including measurement overhead;
+- model parameter count and device when exposed by the adapter.
+
+### Repeated runs
+
+`onwordly-arithmetic-suite` repeats the complete three-regime experiment across seeds and writes:
+
+- one result directory per seed;
+- `aggregate.json` with mean/stddev/min/max summaries;
+- `checkpoints.csv` for accuracy-versus-training-token curves.
+
+The default suite seeds are 3303, 4404, and 5505.
+
+## Default configuration
 
 See `experiments/001-arithmetic-curriculum/manifest.json`.
 
@@ -56,31 +80,28 @@ Current defaults:
 
 ## Current blocker
 
-A real model run has not yet been completed. Attempts to launch both CPU and GPU Hugging Face Jobs from the connected account returned HTTP **402 Payment Required**.
+A real model run has not yet been completed. Attempts to launch both CPU and GPU Hugging Face Jobs from the connected account returned HTTP **402 Payment Required**. The connected environment therefore cannot currently execute the Qwen experiment.
 
-This is a compute-access/billing blocker, not a research-design reason to change the experiment.
+A local container test attempt also could not clone GitHub because that container has no outbound DNS. Do not report the new code as externally executed until CI or another compute environment actually runs it.
 
 ## Exact next actions
 
-1. Run the repository tests in an environment with Python 3.10+.
-2. Obtain an available compute path for the 0.5B model.
-3. Run:
+1. Let centralized `ci-validation` run once the workflow controller provisions it, or run `pytest` in any Python 3.10+ environment.
+2. Obtain compute for `Qwen/Qwen2.5-0.5B`.
+3. Run a single seed first:
    ```bash
    pip install -e '.[train,test]'
    pytest
    onwordly-arithmetic
    ```
-4. Preserve the generated `results/001-arithmetic-curriculum/summary.json`.
-5. Compare the three regimes on:
-   - held-out accuracy at matched training tokens;
-   - tokens-to-threshold;
-   - withheld-prompt accuracy;
-   - out-of-range-digit accuracy;
-   - examples trained;
-   - generation/verifier overhead.
-6. Repeat across multiple seeds before treating any difference as evidence.
-7. Only after the repeated baseline exists should the project add more expensive mechanisms such as process reward models, search, or multi-agent language games.
+4. Inspect `results/001-arithmetic-curriculum/summary.json` for implementation mistakes or pathological behavior.
+5. If the single run is sane, run:
+   ```bash
+   onwordly-arithmetic-suite --seeds 3303 4404 5505
+   ```
+6. Compare regimes using both accuracy and resource cost. Do not select a conclusion from one seed.
+7. If an adaptive regime shows a repeatable advantage, design the next ablation before adding PRMs, MCTS, or multi-agent language games.
 
 ## Interpretation rule
 
-A higher final score is not enough. The research question is whether an adaptive executable curriculum purchases more capability per constrained resource. Any gain that disappears after accounting for training tokens, additional generation, verification, or repeated runs is not a shortcut; it is a bill wearing novelty glasses.
+A higher final score is not enough. The question is whether an adaptive executable curriculum purchases more capability per constrained resource. A gain that disappears after accounting for training tokens, extra generation, verification, or repeated runs is not a shortcut; it is a bill wearing novelty glasses.

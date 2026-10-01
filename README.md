@@ -10,31 +10,21 @@ The repository deliberately separates **established techniques** from **new hypo
 
 ## Research direction
 
-Onwordly explores:
+Onwordly explores executable curricula, exact/programmatic verification, adaptive sampling, counterexample repair, language games, process supervision, search-assisted trajectories, and distillation into small models.
 
-- executable curricula instead of fixed corpora;
-- automatic task generation with exact or programmatic verification;
-- adaptive sampling concentrated on unresolved skills;
-- counterexample generation and repair;
-- language games and multi-agent training;
-- outcome and process supervision;
-- search-assisted trajectory generation;
-- distillation of expensive training-time search into small models;
-- measurements of capability gained per training token, example, FLOP, and parameter.
+## Experiment 001
 
-## First experiment
-
-Experiment 001 compares three arithmetic-training regimes under the same model-token budget:
+The first controlled experiment compares:
 
 1. frozen static supervised fine-tuning;
 2. adaptive curriculum training;
 3. adaptive error-focused training.
 
-Arithmetic is deliberately unglamorous: generation is unlimited and correctness is exact. That lets the training method fail without hiring a neural judge to explain away the corpse.
+It now includes deterministic train/eval partitioning, periodic accuracy checkpoints, withheld prompt-form tests, out-of-range digit tests, measurement-overhead accounting, and repeated-seed aggregation.
 
 See [experiments/001-arithmetic-curriculum](experiments/001-arithmetic-curriculum/README.md).
 
-## Run it
+## Run one experiment
 
 ```bash
 python -m venv .venv
@@ -44,25 +34,34 @@ pytest
 onwordly-arithmetic
 ```
 
-The default manifest uses `Qwen/Qwen2.5-0.5B`. Edit `experiments/001-arithmetic-curriculum/manifest.json` to change the model, token budget, task distribution, or seeds.
+## Run the repeated-seed suite
 
-Generated datasets and results are written beneath `results/` and intentionally ignored by git.
+```bash
+onwordly-arithmetic-suite --seeds 3303 4404 5505
+```
+
+The suite writes one directory per seed plus `aggregate.json` and `checkpoints.csv`.
+
+## Read first in a new session
+
+Read `AGENTS.md`, then `docs/session-handoff.md`. Those documents define the research constraints, current state, blocker, and exact next actions.
 
 ## Repository map
 
-- `docs/research-program.md` — research thesis, principles, and phases.
-- `docs/novelty-ledger.md` — prior art versus actual Onwordly hypotheses.
+- `AGENTS.md` — rules for future sessions and contributors.
+- `docs/research-program.md` — research thesis and phases.
+- `docs/novelty-ledger.md` — prior art versus actual hypotheses.
+- `docs/session-handoff.md` — current state and next actions.
 - `experiments/` — experiment specifications and manifests.
-- `src/onwordly/datasets/` — frozen baseline dataset generation.
-- `src/onwordly/tasks/` — task generators.
+- `src/onwordly/datasets/` — frozen dataset generation.
+- `src/onwordly/tasks/` — task generators and split logic.
 - `src/onwordly/verifiers/` — exact/programmatic verification.
 - `src/onwordly/curricula/` — adaptive curriculum logic.
-- `src/onwordly/training/` — task sources, equal-token harness, and evaluation.
-- `src/onwordly/models/` — model-independent adapter interface and backends.
-- `tests/` — deterministic tests for the experimental machinery.
+- `src/onwordly/training/` — sources, equal-token harness, evaluation.
+- `src/onwordly/models/` — model adapters.
+- `src/onwordly/experiments/` — single-run and repeated-run orchestration.
+- `tests/` — deterministic tests.
 
-## Status
+## Current blocker
 
-Experiment 001 now has a complete first-pass pipeline: frozen baseline generation, adaptive and error-focused task sources, exact verification, a model adapter, strict token-budget accounting, evaluation, manifests, and JSON result serialization.
-
-The next work is empirical: run the controlled experiment, inspect failure modes, and only then complicate the machinery.
+The real Qwen 0.5B run still requires an available compute path. Connected Hugging Face Jobs currently returns HTTP 402 for both CPU and GPU jobs. The experiment code should not be redesigned merely to appease a billing page.

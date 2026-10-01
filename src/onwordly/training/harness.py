@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from random import Random
 from statistics import fmean
+from time import perf_counter
 from typing import Callable
 
 from onwordly.models.base import ModelAdapter
@@ -34,6 +35,7 @@ class TrainingRunResult:
     verifier_calls: int
     correct_before_train: int
     mean_loss: float | None
+    training_core_seconds: float
     bucket_stats: dict[str, dict[str, float | int]] = field(default_factory=dict)
     checkpoints: tuple[dict[str, object], ...] = ()
 
@@ -79,6 +81,7 @@ def run_equal_token_training(
     generation_calls = 0
     verifier_calls = 0
     correct_before_train = 0
+    training_core_seconds = 0.0
     losses: list[float] = []
     buckets: dict[str, BucketRunStats] = {}
     checkpoints: list[dict[str, object]] = []
@@ -103,6 +106,7 @@ def run_equal_token_training(
         if training_tokens + planned_tokens > token_budget:
             break
 
+        started = perf_counter()
         response = adapter.generate(task.prompt)
         generation_calls += 1
         correct = verifier(task, response)
@@ -121,6 +125,7 @@ def run_equal_token_training(
                 "adapter token accounting changed between planning and training: "
                 f"planned={planned_tokens}, actual={step.tokens}"
             )
+        training_core_seconds += perf_counter() - started
 
         training_tokens += step.tokens
         examples_trained += 1
@@ -129,11 +134,12 @@ def run_equal_token_training(
         if (
             checkpoint_callback is not None
             and next_checkpoint is not None
+            and checkpoint_interval_tokens is not None
             and training_tokens >= next_checkpoint
         ):
             scheduled = next_checkpoint
             while next_checkpoint <= training_tokens:
-                next_checkpoint += checkpoint_interval_tokens  # type: ignore[operator]
+                next_checkpoint += checkpoint_interval_tokens
             metrics = checkpoint_callback(scheduled, training_tokens)
             checkpoints.append(
                 {
@@ -173,6 +179,7 @@ def run_equal_token_training(
         verifier_calls=verifier_calls,
         correct_before_train=correct_before_train,
         mean_loss=fmean(losses) if losses else None,
+        training_core_seconds=training_core_seconds,
         bucket_stats=bucket_payload,
         checkpoints=tuple(checkpoints),
     )

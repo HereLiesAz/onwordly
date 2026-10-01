@@ -20,6 +20,7 @@ class HuggingFaceCausalLMAdapter:
         max_new_tokens: int = 32,
         device: str = "auto",
         gradient_clip_norm: float | None = 1.0,
+        seed: int | None = None,
     ) -> None:
         try:
             import torch
@@ -30,10 +31,16 @@ class HuggingFaceCausalLMAdapter:
             ) from exc
 
         self.torch = torch
+        if seed is not None:
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
+
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name)
         self.max_new_tokens = max_new_tokens
         self.gradient_clip_norm = gradient_clip_norm
+        self.parameter_count = sum(parameter.numel() for parameter in self.model.parameters())
 
         if self.tokenizer.pad_token_id is None:
             if self.tokenizer.eos_token_id is None:
@@ -49,6 +56,7 @@ class HuggingFaceCausalLMAdapter:
                 device = "cpu"
 
         self.device = torch.device(device)
+        self.device_name = str(self.device)
         self.model.to(self.device)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
 

@@ -4,6 +4,7 @@ import argparse
 import json
 from dataclasses import asdict
 from pathlib import Path
+from time import perf_counter
 from typing import Callable
 
 from onwordly.curricula.adaptive import AdaptiveArithmeticCurriculum
@@ -26,6 +27,7 @@ def _adapter_factory(manifest: ArithmeticExperimentManifest) -> Callable[[], Mod
             manifest.model_name,
             learning_rate=manifest.learning_rate,
             max_new_tokens=manifest.max_new_tokens,
+            seed=manifest.training_seed,
         )
 
     return create
@@ -145,6 +147,8 @@ def run_experiment(
 
     for regime_name, source_factory in regimes:
         adapter = factory()
+        checkpoint_generation_calls = 0
+        checkpoint_seconds = 0.0
 
         def checkpoint_callback(
             scheduled_tokens: int,
@@ -152,8 +156,13 @@ def run_experiment(
             *,
             _adapter: ModelAdapter = adapter,
         ) -> dict[str, object]:
+            nonlocal checkpoint_generation_calls, checkpoint_seconds
             del scheduled_tokens, actual_tokens
-            return {"evaluation": evaluate_arithmetic(_adapter, checkpoint_tasks).to_dict()}
+            started = perf_counter()
+            evaluation = evaluate_arithmetic(_adapter, checkpoint_tasks)
+            checkpoint_seconds += perf_counter() - started
+            checkpoint_generation_calls += len(checkpoint_tasks)
+            return {"evaluation": evaluation.to_dict()}
 
         training = run_equal_token_training(
             regime=regime_name,
@@ -165,16 +174,35 @@ def run_experiment(
             checkpoint_callback=checkpoint_callback,
         )
 
-        final_evaluations = _serialize_evaluations(
-            evaluate_arithmetic(adapter, heldout_tasks),
-            evaluate_arithmetic(adapter, withheld_prompt_tasks),
-            evaluate_arithmetic(adapter, out_of_range_tasks),
+        started = perf_counter()
+        heldout = evaluate_arithmetic(adapter, heldout_tasks)
+        withheld = evaluate_arithmetic(adapter, withheld_prompt_tasks)
+        out_of_range = evaluate_arithmetic(adapter, out_of_range_tasks)
+        final_evaluation_seconds = perf_counter() - started
+        final_evaluation_calls = (
+            len(heldout_tasks) + len(withheld_prompt_tasks) + len(out_of_range_tasks)
         )
+        total_evaluation_calls = checkpoint_generation_calls + final_evaluation_calls
 
         regime_result = {
+            "model": {
+                "parameter_count": getattr(adapter, "parameter_count", None),
+                "device": getattr(adapter, "device_name", None),
+            },
             "training": training.to_dict(),
             "tokens_to_threshold": _tokens_to_threshold(training.checkpoints),
-            "evaluation": final_evaluations,
+            "evaluation": _serialize_evaluations(heldout, withheld, out_of_range),
+            "measurement_overhead": {
+                "checkpoint_generation_calls": checkpoint_generation_calls,
+                "final_evaluation_generation_calls": final_evaluation_calls,
+                "total_evaluation_generation_calls": total_evaluation_calls,
+                "checkpoint_seconds": checkpoint_seconds,
+                "final_evaluation_seconds": final_evaluation_seconds,
+                "total_evaluation_seconds": checkpoint_seconds + final_evaluation_seconds,
+                "total_generation_calls_including_evaluation": (
+                    training.generation_calls + total_evaluation_calls
+                ),
+            },
         }
         results["regimes"][regime_name] = regime_result
         with (output / f"{regime_name}.json").open("w", encoding="utf-8") as handle:
