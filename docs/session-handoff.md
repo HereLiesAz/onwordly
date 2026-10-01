@@ -40,24 +40,22 @@ Prepared run-plan combinations:
 
 - Experiment 001 / single;
 - Experiment 001 / suite;
-- Experiment 002 / single.
+- Experiment 002 / single;
+- Experiment 003 / single;
+- Experiment 003 / suite.
 
 Experiment 002 / suite is intentionally gated.
 
-## Current live run
+## Current live runs
 
-The original Kaggle run `36852362318` was cancelled after a later development push superseded it.
+The old GitHub-hosted CPU experiment and earlier single-seed Kaggle revisions are superseded.
 
-The current canonical Experiment 001 single run is:
+The current canonical arithmetic runs are the independently isolated Kaggle jobs listed below:
 
-- source commit: `4cc7a681354aa4d3817c6cc2e32867d8a975aa47`;
-- central Kaggle run: `36853381019`;
-- central Kaggle job: `110340375478`;
-- accelerator: `NvidiaTeslaT4`;
-- authentication, package build, and Kaggle submission: **successful**;
-- current state: waiting for the Kaggle kernel.
+- Experiment 001 repeated-seed suite — central run `36857400628`;
+- Experiment 002 five-regime ablation — central run `36857267229`.
 
-The old GitHub-hosted CPU experiment is superseded.
+Both are running on pinned target revisions, so continued development on `main` does not alter their code or cancel them.
 
 ## Experiment 001 repeated-seed suite
 
