@@ -50,29 +50,31 @@ That file currently contains only instructions because no real model result exis
 
 The repository is registered with the central workflow controller. Normal CI is bound to shared `ci-validation.yml` and has passed on Python 3.10, 3.11, and 3.12.
 
-A second curated binding, `.github/workflows/experiment.yml`, now uses the same generalized Python executor with a dedicated experiment purpose profile and artifact capture.
+Experiment 001 now runs through a curated `.github/workflows/kaggle-experiment.yml` binding. The central executor uses the existing repository-level `KAGGLE_TOKEN` secret, submits a private Kaggle script with Internet enabled, requests `NvidiaTeslaT4` GPU acceleration, polls the Kaggle kernel to completion, downloads its outputs, and preserves them as a GitHub Actions artifact.
 
-The first real `Qwen/Qwen2.5-0.5B` Experiment 001 run is **in progress** on GitHub-hosted compute:
+The first Kaggle GPU run is **in progress**:
 
-- trigger commit: `d5a8709d52ab0667808d1965249eb61084155b06`
-- target tracker run: `36830759421`
-- central experiment run: `36830779628`
-- central Python job: `110266672672`
-- result artifact path: `results/001-arithmetic-curriculum/**`
+- trigger commit: `fde7b80723be0eb78992a2e217a804a76ca6c415`
+- target tracker run: `36852342199`
+- central Kaggle run: `36852362318`
+- central Kaggle job: `110336796322`
+- accelerator: `NvidiaTeslaT4`
+- Kaggle submission step: **succeeded**
+- current central step: waiting for the Kaggle kernel
+- expected output: `results/001-arithmetic-curriculum/**`, including `summary.json` and rendered `RESULTS.md`
 
-Hugging Face Jobs remains unavailable because the connected account returned HTTP 402, so GitHub-hosted CPU compute is being used for this first run.
+The earlier GitHub-hosted CPU experiment run `36830779628` is superseded. It is not the primary Experiment 001 result path.
+
+Hugging Face Jobs remains unavailable because the connected account returned HTTP 402.
 
 ## Exact next actions
 
-1. Wait for central run `36830779628` to finish.
-2. If it succeeds, inspect the uploaded result artifact and `summary.json`.
-3. Render and inspect the single-run report.
-4. If sane, run `onwordly-arithmetic-suite --seeds 3303 4404 5505`.
-5. Render the suite report into `experiments/001-arithmetic-curriculum/RESULTS.md`.
-6. Inspect `checkpoints.csv` and every seed before interpreting the aggregate.
-7. If an adaptive regime shows a repeatable advantage, design an ablation before adding PRMs, MCTS, or multi-agent language games.
-
-If the first run times out on the standard GitHub runner, preserve the failure evidence and optimize the execution path or move to GPU compute without changing the experimental comparison itself.
+1. Wait for central Kaggle run `36852362318` to finish.
+2. Inspect the downloaded Kaggle artifact and `summary.json`.
+3. Render/check the single-run report in `RESULTS.md`.
+4. If sane, move the repeated-seed suite to the same Kaggle GPU path and run seeds 3303, 4404, and 5505.
+5. Inspect `checkpoints.csv` and every seed before interpreting the aggregate.
+6. If an adaptive regime shows a repeatable advantage, design an ablation before adding PRMs, MCTS, or multi-agent language games.
 
 ## Interpretation rule
 
