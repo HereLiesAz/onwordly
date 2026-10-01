@@ -96,14 +96,22 @@ This separates the contribution of fresh online data, competence response, and l
 
 The underlying mechanisms remain established prior art; the experiment measures their contribution inside Onwordly rather than renaming them.
 
+## Current queued/running experiments
+
+Two real-model Kaggle jobs have now been launched instead of waiting serially:
+
+- **Experiment 001 repeated-seed suite** — target commit `408f441600348607cf852adc45cce5642a6dba7f`, central run `36857400628`; seeds 3303, 4404, 5505.
+- **Experiment 002 five-regime ablation** — target commit `7a382a4ffb9fab5ee4fe20842f7b862e7d366c85`, central run `36857267229`; Kaggle submission succeeded and the kernel is running.
+
+The central Kaggle executor now gives each Kaggle revision a unique kernel slug and uses target-SHA concurrency isolation, so long experiment revisions do not cancel each other.
+
 ## Exact next actions
 
-1. Finish and inspect canonical Experiment 001 single-run output.
-2. If it is technically sane, switch `.kaggle-run` to Experiment 001 / suite and execute seeds 3303, 4404, and 5505.
-3. Inspect every seed and `checkpoints.csv` before interpreting `aggregate.json`.
-4. Decide whether any observed effect is stable enough to justify Experiment 002.
-5. If yes, run the prepared five-regime ablation.
-6. Only after those results should the project consider adding process supervision, search, or multi-agent language games.
+1. Let Experiment 001 suite and Experiment 002 ablation run independently.
+2. Inspect Experiment 001 `aggregate.json`, `checkpoints.csv`, and each seed result.
+3. Inspect Experiment 002 component differences without treating one seed as settled evidence.
+4. If Experiment 001 is stable, repeat Experiment 002 across seeds.
+5. Only then decide whether process supervision, search, or multi-agent language games deserve the next compute budget.
 
 ## Interpretation rule
 
