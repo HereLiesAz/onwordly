@@ -43,7 +43,7 @@ def operand_bounds(digits: int) -> tuple[int, int]:
     return 10 ** (digits - 1), (10**digits) - 1
 
 
-def _normalized_operands(left: int, right: int, operation: Operation) -> tuple[int, int]:
+def _partition_operands(left: int, right: int, operation: Operation) -> tuple[int, int]:
     if operation in ("add", "multiply") and right < left:
         return right, left
     if operation == "subtract" and right > left:
@@ -65,8 +65,8 @@ def arithmetic_partition(
     """
     if modulus < 2:
         raise ValueError("modulus must be at least 2")
-    left, right = _normalized_operands(left, right, operation)
-    key = f"{operation}:{left}:{right}".encode("utf-8")
+    partition_left, partition_right = _partition_operands(left, right, operation)
+    key = f"{operation}:{partition_left}:{partition_right}".encode("utf-8")
     residue = int.from_bytes(blake2b(key, digest_size=8).digest(), "big") % modulus
     return "eval" if residue == 0 else "train"
 
@@ -119,7 +119,8 @@ def make_arithmetic_task(
 ) -> ArithmeticTask:
     if left < 0 or right < 0:
         raise ValueError("operands must be non-negative")
-    left, right = _normalized_operands(left, right, operation)
+    if operation == "subtract" and right > left:
+        left, right = right, left
 
     if operation == "add":
         answer = left + right
