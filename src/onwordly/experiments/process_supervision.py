@@ -63,6 +63,29 @@ def _factory(manifest: ProgramExperimentManifest) -> Callable[[], ModelAdapter]:
     return create
 
 
+def _training_cost_profile(
+    adapter: ModelAdapter,
+    programs: tuple[ProgramTask, ...],
+    *,
+    supervision: Literal["outcome", "trace"],
+) -> dict[str, float | int]:
+    tasks = tuple(
+        make_program_supervision_task(program.instructions, supervision=supervision)
+        for program in programs
+    )
+    costs = tuple(
+        adapter.count_training_tokens(task.prompt, task.target_text)
+        for task in tasks
+    )
+    return {
+        "program_pool_size": len(tasks),
+        "first_pass_training_tokens": sum(costs),
+        "min_training_tokens_per_example": min(costs),
+        "max_training_tokens_per_example": max(costs),
+        "mean_training_tokens_per_example": sum(costs) / len(costs),
+    }
+
+
 def _evaluate_final(
     adapter: ModelAdapter,
     programs: tuple[ProgramTask, ...],
@@ -151,6 +174,11 @@ def run_process_supervision_experiment(
         )
         adapter = factory()
         started = perf_counter()
+        cost_profile = _training_cost_profile(
+            adapter,
+            train_programs,
+            supervision=supervision,
+        )
         training = run_equal_token_training(
             regime=regime,
             adapter=adapter,
@@ -165,8 +193,19 @@ def run_process_supervision_experiment(
             supervision=supervision,
         )
         trace_eval = _evaluate_trace(adapter, heldout_programs)
+        completed_pool_cycles, partial_pool_examples = divmod(
+            training.examples_trained,
+            len(train_programs),
+        )
         regime_result = {
             "training": training.to_dict(),
+            "training_exposure": {
+                **cost_profile,
+                "completed_program_pool_cycles": completed_pool_cycles,
+                "partial_program_pool_examples": partial_pool_examples,
+                "unique_programs_available": len(train_programs),
+                "examples_trained": training.examples_trained,
+            },
             "evaluation": {
                 "final_answer": final_eval,
                 "exact_trace": trace_eval,
@@ -183,6 +222,37 @@ def run_process_supervision_experiment(
         close = getattr(adapter, "close", None)
         if callable(close):
             close()
+
+    outcome = result["regimes"]["outcome-only"]
+    trace = result["regimes"]["trace-supervised"]
+    outcome_training = outcome["training"]
+    trace_training = trace["training"]
+    outcome_exposure = outcome["training_exposure"]
+    trace_exposure = trace["training_exposure"]
+    result["comparison"] = {
+        "training_token_budget_equal": (
+            outcome_training["token_budget"] == trace_training["token_budget"]
+        ),
+        "outcome_examples_trained": outcome_training["examples_trained"],
+        "trace_examples_trained": trace_training["examples_trained"],
+        "trace_to_outcome_example_ratio": (
+            trace_training["examples_trained"] / outcome_training["examples_trained"]
+            if outcome_training["examples_trained"]
+            else None
+        ),
+        "outcome_mean_training_tokens_per_example": (
+            outcome_training["mean_training_tokens_per_example"]
+        ),
+        "trace_mean_training_tokens_per_example": (
+            trace_training["mean_training_tokens_per_example"]
+        ),
+        "trace_to_outcome_first_pass_token_ratio": (
+            trace_exposure["first_pass_training_tokens"]
+            / outcome_exposure["first_pass_training_tokens"]
+            if outcome_exposure["first_pass_training_tokens"]
+            else None
+        ),
+    }
 
     (output / "summary.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n",
