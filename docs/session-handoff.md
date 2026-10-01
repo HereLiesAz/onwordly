@@ -8,73 +8,101 @@ Onwordly studies whether small language models can acquire useful techniques wit
 
 The project does **not** claim that active learning, hard-example mining, curriculum learning, counterexample refinement, process supervision, self-play, search, GRPO, LoRA, or distillation are new.
 
-## Current experiment: 001
+## Experiment 001
 
-Experiment 001 compares three arithmetic regimes:
+Experiment 001 compares:
 
 1. **static** — frozen supervised examples;
 2. **adaptive** — online generation weighted toward weaker operation/difficulty buckets;
 3. **error-focused** — adaptive training plus nearby variants after failures.
 
-All three receive the same training-token budget and the same pre-update generation/check step.
+All regimes receive the same training-token budget and the same pre-update generation/check step.
 
-## Implemented safeguards and measurements
+Leakage control, periodic held-out checkpoints, withheld-prompt evaluation, out-of-range evaluation, token-threshold measurements, and resource accounting are implemented.
 
-### Leakage control
+## Kaggle execution
 
-Operand combinations are deterministically partitioned into train/eval sets with a stable hash. Addition and multiplication normalize operand order **only for the partition key**, not for the generated prompt, so reversed commutative forms cannot cross the split without collapsing the training distribution. Adaptive generation and error-focused variants are constrained to the training partition.
+Experiment execution is centralized through `.github/workflows/kaggle-experiment.yml`.
 
-### Evaluation
+The central workflow:
 
-Each run records baseline and periodic held-out checkpoints, final held-out accuracy, withheld-prompt accuracy, out-of-range-digit accuracy, and first observed token count reaching 70%, 80%, 90%, and 95% checkpoint accuracy.
+- uses the repository-level `KAGGLE_TOKEN`;
+- submits a private Kaggle script;
+- enables Internet access;
+- requests `NvidiaTeslaT4`;
+- polls the kernel to completion;
+- downloads Kaggle outputs;
+- preserves them as a GitHub Actions artifact.
 
-Checkpoint outcomes are never passed to the adaptive curriculum.
+The repository now owns the actual run intent in `.kaggle-run`. The central purpose profile calls `onwordly-kaggle`, so changing from a single run to the repeated-seed suite no longer requires editing the central controller.
 
-### Resource accounting
+Prepared run-plan combinations:
 
-Each regime records exact training tokens, examples trained, training-time generation calls, verifier calls, core training seconds, evaluation generation calls, evaluation seconds, total generation calls, model parameter count, and device when exposed by the adapter.
+- Experiment 001 / single;
+- Experiment 001 / suite;
+- Experiment 002 / single.
 
-### Repeated runs
+Experiment 002 / suite is intentionally gated.
 
-`onwordly-arithmetic-suite` repeats the complete experiment across seeds and writes one result directory per seed, `aggregate.json`, and `checkpoints.csv`.
+## Current live run
 
-### Reporting
+The first real Experiment 001 Kaggle GPU run remains the primary result path:
 
-`onwordly-arithmetic-report` renders either a single-run `summary.json` or suite `aggregate.json` into a compact Markdown report. The canonical report target is:
+- trigger commit: `fde7b80723be0eb78992a2e217a804a76ca6c415`;
+- target tracker run: `36852342199`;
+- central Kaggle run: `36852362318`;
+- central Kaggle job: `110336796322`;
+- accelerator: `NvidiaTeslaT4`.
 
-`experiments/001-arithmetic-curriculum/RESULTS.md`
+A later repository-development commit also touched `.kaggle-run` while the new plan runner was being introduced, which may have generated an additional single-run dispatch. Treat the earliest successful run above as the canonical first-run result unless it fails.
 
-That file currently contains only instructions because no real model result exists yet.
+The old GitHub-hosted CPU experiment is superseded.
 
-## Current execution
+## Experiment 001 repeated-seed suite
 
-The repository is registered with the central workflow controller. Normal CI is bound to shared `ci-validation.yml` and has passed on Python 3.10, 3.11, and 3.12.
+The suite is ready for Kaggle. To launch it after checking the first result, change `.kaggle-run` to:
 
-Experiment 001 now runs through a curated `.github/workflows/kaggle-experiment.yml` binding. The central executor uses the existing repository-level `KAGGLE_TOKEN` secret, submits a private Kaggle script with Internet enabled, requests `NvidiaTeslaT4` GPU acceleration, polls the Kaggle kernel to completion, downloads its outputs, and preserves them as a GitHub Actions artifact.
+```text
+experiment: 001
+mode: suite
+backend: kaggle
+accelerator: NvidiaTeslaT4
+model: Qwen/Qwen2.5-0.5B
+manifest: experiments/001-arithmetic-curriculum/manifest.json
+seeds: 3303,4404,5505
+```
 
-The first Kaggle GPU run is **in progress**:
+The Kaggle runner will write:
 
-- trigger commit: `fde7b80723be0eb78992a2e217a804a76ca6c415`
-- target tracker run: `36852342199`
-- central Kaggle run: `36852362318`
-- central Kaggle job: `110336796322`
-- accelerator: `NvidiaTeslaT4`
-- Kaggle submission step: **succeeded**
-- current central step: waiting for the Kaggle kernel
-- expected output: `results/001-arithmetic-curriculum/**`, including `summary.json` and rendered `RESULTS.md`
+- one result directory per seed;
+- `aggregate.json`;
+- `checkpoints.csv`;
+- rendered `RESULTS.md`.
 
-The earlier GitHub-hosted CPU experiment run `36830779628` is superseded. It is not the primary Experiment 001 result path.
+## Experiment 002 prepared
 
-Hugging Face Jobs remains unavailable because the connected account returned HTTP 402.
+`experiments/002-adaptive-ablation/` is scaffolded but not yet promoted to a repeated real-model experiment.
+
+Its five regimes isolate:
+
+1. frozen static data;
+2. online-uniform generation;
+3. competence-responsive adaptive sampling;
+4. error-focused variants with uniform sampling;
+5. error-focused variants with adaptive sampling.
+
+This separates the contribution of fresh online data, competence response, and local hard-example generation.
+
+The underlying mechanisms remain established prior art; the experiment measures their contribution inside Onwordly rather than renaming them.
 
 ## Exact next actions
 
-1. Wait for central Kaggle run `36852362318` to finish.
-2. Inspect the downloaded Kaggle artifact and `summary.json`.
-3. Render/check the single-run report in `RESULTS.md`.
-4. If sane, move the repeated-seed suite to the same Kaggle GPU path and run seeds 3303, 4404, and 5505.
-5. Inspect `checkpoints.csv` and every seed before interpreting the aggregate.
-6. If an adaptive regime shows a repeatable advantage, design an ablation before adding PRMs, MCTS, or multi-agent language games.
+1. Finish and inspect canonical Experiment 001 single-run output.
+2. If it is technically sane, switch `.kaggle-run` to Experiment 001 / suite and execute seeds 3303, 4404, and 5505.
+3. Inspect every seed and `checkpoints.csv` before interpreting `aggregate.json`.
+4. Decide whether any observed effect is stable enough to justify Experiment 002.
+5. If yes, run the prepared five-regime ablation.
+6. Only after those results should the project consider adding process supervision, search, or multi-agent language games.
 
 ## Interpretation rule
 

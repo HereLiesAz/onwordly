@@ -8,43 +8,65 @@ The central question is simple:
 
 The repository deliberately separates **established techniques** from **new hypotheses and combinations**. Active learning, hard-example mining, curriculum learning, self-play, process supervision, GRPO, search, and distillation are prior art. Onwordly is not a renaming ceremony for other people's inventions.
 
-## Research direction
-
-Onwordly explores executable curricula, exact/programmatic verification, adaptive sampling, counterexample repair, language games, process supervision, search-assisted trajectories, and distillation into small models.
-
 ## Experiment 001
 
-The first controlled experiment compares:
+The first controlled experiment compares frozen static SFT, adaptive curriculum training, and adaptive error-focused training under the same training-token budget.
 
-1. frozen static supervised fine-tuning;
-2. adaptive curriculum training;
-3. adaptive error-focused training.
+It includes deterministic train/eval partitioning, periodic checkpoints, withheld prompt-form tests, out-of-range digit tests, resource accounting, and repeated-seed aggregation.
 
-It now includes deterministic train/eval partitioning, periodic accuracy checkpoints, withheld prompt-form tests, out-of-range digit tests, measurement-overhead accounting, and repeated-seed aggregation.
+The first real-model run is currently executing on Kaggle GPU through the central workflow controller.
 
 See [experiments/001-arithmetic-curriculum](experiments/001-arithmetic-curriculum/README.md).
 
-## Run one experiment
+## Experiment 002 — prepared ablation
+
+The next experiment is already scaffolded so we do not have to invent an explanation after seeing Experiment 001.
+
+It separates:
+
+1. frozen static data;
+2. fresh online data sampled uniformly;
+3. competence-responsive adaptive sampling;
+4. failure-neighborhood examples without adaptive bucket weighting;
+5. failure-neighborhood examples combined with adaptive weighting.
+
+Experiment 002 is deliberately **gated** until Experiment 001 has a sane repeated-seed result worth explaining.
+
+See [experiments/002-adaptive-ablation](experiments/002-adaptive-ablation/README.md).
+
+## Local commands
 
 ```bash
 python -m venv .venv
 . .venv/bin/activate
 pip install -e '.[train,test]'
 pytest
+
+# Experiment 001, one seed
 onwordly-arithmetic
-```
 
-## Run the repeated-seed suite
-
-```bash
+# Experiment 001, repeated seeds
 onwordly-arithmetic-suite --seeds 3303 4404 5505
+
+# Experiment 002 ablation
+onwordly-arithmetic-ablation
 ```
 
-The suite writes one directory per seed plus `aggregate.json` and `checkpoints.csv`.
+## Kaggle execution
+
+`.kaggle-run` is the repository-owned run plan consumed by the centralized Kaggle executor.
+
+Supported prepared modes:
+
+- Experiment 001 + `single`
+- Experiment 001 + `suite`
+- Experiment 002 + `single`
+
+Experiment 002 + `suite` intentionally remains blocked until Experiment 001 justifies spending that compute.
 
 ## Read first in a new session
 
-Read `AGENTS.md`, then `docs/session-handoff.md`. Those documents define the research constraints, current state, blocker, and exact next actions.
+Read `AGENTS.md`, then `docs/session-handoff.md`.
 
 ## Repository map
 
@@ -56,12 +78,8 @@ Read `AGENTS.md`, then `docs/session-handoff.md`. Those documents define the res
 - `src/onwordly/datasets/` — frozen dataset generation.
 - `src/onwordly/tasks/` — task generators and split logic.
 - `src/onwordly/verifiers/` — exact/programmatic verification.
-- `src/onwordly/curricula/` — adaptive curriculum logic.
+- `src/onwordly/curricula/` — uniform and adaptive curricula.
 - `src/onwordly/training/` — sources, equal-token harness, evaluation.
 - `src/onwordly/models/` — model adapters.
-- `src/onwordly/experiments/` — single-run and repeated-run orchestration.
+- `src/onwordly/experiments/` — single-run, suite, ablation, and Kaggle orchestration.
 - `tests/` — deterministic tests.
-
-## Current blocker
-
-The real Qwen 0.5B run still requires an available compute path. Connected Hugging Face Jobs currently returns HTTP 402 for both CPU and GPU jobs. The experiment code should not be redesigned merely to appease a billing page.
