@@ -28,6 +28,8 @@ onwordly-string = "onwordly.experiments.string_manipulation:main"
 onwordly-string-suite = "onwordly.experiments.string_suite:main"
 onwordly-program = "onwordly.experiments.program_execution:main"
 onwordly-program-suite = "onwordly.experiments.program_suite:main"
+onwordly-logic = "onwordly.experiments.formal_logic:main"
+onwordly-logic-suite = "onwordly.experiments.logic_suite:main"
 onwordly-kaggle = "onwordly.experiments.kaggle:main"
 
 [tool.setuptools.packages.find]

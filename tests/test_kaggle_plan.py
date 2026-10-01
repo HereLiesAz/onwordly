@@ -70,3 +70,17 @@ def test_experiment_005_suite_is_prepared(tmp_path: Path) -> None:
     plan = load_run_plan(plan_path)
     assert plan.experiment == "005"
     assert plan.mode == "suite"
+
+
+def test_experiment_006_suite_is_prepared(tmp_path: Path) -> None:
+    plan_path = tmp_path / ".kaggle-run"
+    plan_path.write_text(
+        "experiment: 006\n"
+        "mode: suite\n"
+        "manifest: experiments/006-formal-logic/manifest.json\n"
+        "seeds: 3303,4404,5505\n",
+        encoding="utf-8",
+    )
+    plan = load_run_plan(plan_path)
+    assert plan.experiment == "006"
+    assert plan.mode == "suite"

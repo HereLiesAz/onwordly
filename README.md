@@ -44,9 +44,9 @@ See [experiments/005-program-execution](experiments/005-program-execution/README
 
 ## Experiment 006 — formal logic substrate
 
-The initial deterministic Phase 0 domain list is now complete. Formal logic adds
-generated propositional formulas, exact local evaluation, depth-controlled
-difficulty, stable partitioning, and strict true/false verification.
+The initial deterministic Phase 0 domain list is now complete. Formal logic now
+also has adaptive/error-focused curricula, an equal-token runner, deeper-formula
+evaluation, repeated-seed aggregation, and Kaggle execution support.
 
 See [experiments/006-formal-logic](experiments/006-formal-logic/README.md).
 

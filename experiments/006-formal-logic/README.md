@@ -1,6 +1,6 @@
 # Experiment 006 — Formal logic
 
-**Status: deterministic substrate implemented; training integration pending.**
+**Status: deterministic substrate and equal-token training comparison implemented; real-model run not yet launched.**
 
 This completes the initial Phase 0 list with a mechanically decidable formal
 logic domain.
@@ -26,10 +26,19 @@ pairs into train and evaluation sets.
 - balanced frozen datasets;
 - tests across operators, depth, verification, and partitioning.
 
+## Implemented beyond the substrate
+
+- adaptive and error-focused depth curricula;
+- equal-token static/adaptive/error-focused runner;
+- held-out and deeper-formula evaluation;
+- full and smoke manifests;
+- repeated-seed suite;
+- Kaggle single/suite execution support.
+
 ## Next
 
-1. integrate the generic equal-token curriculum harness;
-2. evaluate deeper formulas and withheld operator compositions;
-3. add repeated-seed execution only after smoke validation.
+1. add withheld operator-composition evaluation;
+2. smoke test the runner;
+3. run one full seed, then repeated seeds only if the path is clean.
 
 No learned judge or chain-of-thought target is needed at this stage.

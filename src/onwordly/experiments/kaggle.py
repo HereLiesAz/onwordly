@@ -21,6 +21,10 @@ from onwordly.experiments.program_execution import run_program_experiment
 from onwordly.experiments.program_manifest import ProgramExperimentManifest
 from onwordly.experiments.program_suite import run_program_suite
 from onwordly.reporting.program_execution import render_program_result
+from onwordly.experiments.formal_logic import run_logic_experiment
+from onwordly.experiments.logic_manifest import LogicExperimentManifest
+from onwordly.experiments.logic_suite import run_logic_suite
+from onwordly.reporting.formal_logic import render_logic_result
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +56,7 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
     seeds_text = values.get("seeds", "3303,4404,5505")
     seeds = tuple(int(value.strip()) for value in seeds_text.split(",") if value.strip())
 
-    if experiment not in {"001", "002", "003", "004", "005"}:
+    if experiment not in {"001", "002", "003", "004", "005", "006"}:
         raise ValueError(f"unsupported experiment: {experiment}")
     if mode not in {"single", "suite"}:
         raise ValueError(f"unsupported mode: {mode}")
@@ -71,6 +75,22 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
 
 def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
     root = Path(output_root)
+
+    if plan.experiment == "006":
+        logic_manifest = LogicExperimentManifest.from_json(plan.manifest)
+        if plan.mode == "single":
+            output = root / "006-formal-logic"
+            run_logic_experiment(logic_manifest, output_dir=output)
+            result_path = output / "summary.json"
+        else:
+            output = root / "006-formal-logic-suite"
+            run_logic_suite(logic_manifest, seeds=plan.seeds, output_dir=output)
+            result_path = output / "aggregate.json"
+        (output / "RESULTS.md").write_text(
+            render_logic_result(result_path),
+            encoding="utf-8",
+        )
+        return output
 
     if plan.experiment == "005":
         program_manifest = ProgramExperimentManifest.from_json(plan.manifest)
