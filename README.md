@@ -14,7 +14,7 @@ The first controlled experiment compares frozen static SFT, adaptive curriculum 
 
 It includes deterministic train/eval partitioning, periodic checkpoints, a prompt-transfer-only split, a joint heldout+prompt split, out-of-range digit tests, duplicate-rate diagnostics, synchronized resource accounting, peak-memory capture, and repeated-seed aggregation.
 
-The first real-model run is currently executing on Kaggle GPU through the central workflow controller.
+The Kaggle execution path now distinguishes a confirmed Kaggle submission from a GitHub-side watcher. Experiment 001 run 9 and Experiment 002 run 10 are queued for fresh dispatch; neither is considered live until Kaggle confirms a successful kernel push and reports QUEUED or RUNNING.
 
 See [experiments/001-arithmetic-curriculum](experiments/001-arithmetic-curriculum/README.md).
 
