@@ -44,6 +44,8 @@ def test_equal_token_harness_never_overshoots() -> None:
     assert result.generation_calls == 2
     assert result.verifier_calls == 2
     assert result.training_tokens <= result.token_budget
+    assert result.mean_training_tokens_per_example == 7
+    assert result.token_budget_utilization == 14 / 20
 
 
 def test_checkpoints_include_baseline_and_final_state() -> None:
