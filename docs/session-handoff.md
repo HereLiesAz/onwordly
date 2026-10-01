@@ -105,13 +105,35 @@ Two real-model Kaggle jobs have now been launched instead of waiting serially:
 
 The central Kaggle executor now gives each Kaggle revision a unique kernel slug and uses target-SHA concurrency isolation, so long experiment revisions do not cancel each other.
 
+## Work continuing while compute runs
+
+Development is no longer waiting on the live Kaggle jobs.
+
+Since the suite/ablation launches, the codebase has also gained:
+
+- a prompt-transfer-only arithmetic evaluation split, separate from the harder joint heldout+prompt split;
+- logical duplicate-rate diagnostics for generated arithmetic datasets;
+- accelerator-synchronized timing, end-to-end regime wall time, peak CUDA memory, explicit adapter cleanup, and capability-gain-per-million-token measurement;
+- a cheap Experiment 001 real-model smoke manifest;
+- a generic trainable-task contract so the equal-token harness is no longer arithmetic-only;
+- deterministic symbolic transformation generation and exact verification;
+- stable symbolic train/eval partitioning;
+- adaptive, uniform, and error-focused symbolic curricula;
+- Experiment 003 full and smoke manifests;
+- held-out, longer-sequence, and unseen two-step composition evaluation for Experiment 003;
+- repeated-seed symbolic aggregation, Markdown reporting, and Kaggle single/suite execution support.
+
+These changes are on commits from `cb4d4f38` through `f9e0e5e9`. Their centralized CI runs are queued behind the long-running Kaggle jobs, so they must not be described as CI-validated until those runs actually execute.
+
 ## Exact next actions
 
-1. Let Experiment 001 suite and Experiment 002 ablation run independently.
-2. Inspect Experiment 001 `aggregate.json`, `checkpoints.csv`, and each seed result.
-3. Inspect Experiment 002 component differences without treating one seed as settled evidence.
-4. If Experiment 001 is stable, repeat Experiment 002 across seeds.
-5. Only then decide whether process supervision, search, or multi-agent language games deserve the next compute budget.
+1. Keep Experiment 001 suite and Experiment 002 ablation running independently; do not gate development on either result.
+2. Let the queued centralized CI runs validate the new measurement and symbolic-domain code.
+3. If CI finds defects, fix those without altering the scientific comparison.
+4. Run the Experiment 003 smoke path, then one full symbolic seed.
+5. If the symbolic run is sane, launch the 3303/4404/5505 symbolic suite.
+6. Add the next deterministic Phase 0 domain: constrained string manipulation, then simple program execution, then formal logic.
+7. Only after cross-domain evidence exists decide whether process supervision, search, or multi-agent language games deserve additional compute.
 
 ## Interpretation rule
 
