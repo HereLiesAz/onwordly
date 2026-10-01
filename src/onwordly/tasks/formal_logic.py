@@ -70,6 +70,29 @@ def evaluate_logic(expr: LogicExpr, assignment: Mapping[str, bool]) -> bool:
     raise ValueError(f"unsupported logic kind: {expr.kind}")
 
 
+def logic_contains_operator_composition(
+    expr: LogicExpr,
+    composition: tuple[LogicKind, LogicKind],
+) -> bool:
+    """Return whether a parent operator directly contains the requested child operator."""
+    parent_kind, child_kind = composition
+    if parent_kind == "var" or child_kind == "var":
+        raise ValueError("operator composition cannot contain var")
+    if expr.kind == parent_kind:
+        children = tuple(
+            child
+            for child in (expr.left, expr.right)
+            if child is not None
+        )
+        if any(child.kind == child_kind for child in children):
+            return True
+    return any(
+        logic_contains_operator_composition(child, composition)
+        for child in (expr.left, expr.right)
+        if child is not None
+    )
+
+
 def expression_depth(expr: LogicExpr) -> int:
     if expr.kind == "var":
         return 0

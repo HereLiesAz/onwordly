@@ -8,7 +8,11 @@ from time import perf_counter
 from typing import Callable, Sequence
 
 from onwordly.curricula.formal_logic import AdaptiveLogicCurriculum
-from onwordly.datasets.formal_logic import build_static_logic_dataset, write_logic_jsonl
+from onwordly.datasets.formal_logic import (
+    build_logic_composition_dataset,
+    build_static_logic_dataset,
+    write_logic_jsonl,
+)
 from onwordly.experiments.logic_manifest import LogicExperimentManifest
 from onwordly.models.base import ModelAdapter
 from onwordly.models.huggingface import HuggingFaceCausalLMAdapter
@@ -43,6 +47,7 @@ def _source(regime: str, manifest: LogicExperimentManifest, static_tasks):
         variables=manifest.variables,
         partition="train",
         partition_modulus=manifest.holdout_modulus,
+        forbidden_compositions=(manifest.withheld_composition,),
     )
     if regime == "adaptive":
         return OnlineLogicSource(curriculum)
@@ -84,6 +89,7 @@ def run_logic_experiment(
         variables=manifest.variables,
         partition="train",
         partition_modulus=manifest.holdout_modulus,
+        forbidden_compositions=(manifest.withheld_composition,),
     )
     heldout = build_static_logic_dataset(
         seed=manifest.evaluation_seed,
@@ -92,11 +98,22 @@ def run_logic_experiment(
         variables=manifest.variables,
         partition="eval",
         partition_modulus=manifest.holdout_modulus,
+        forbidden_compositions=(manifest.withheld_composition,),
     )
     deeper = build_static_logic_dataset(
         seed=manifest.evaluation_seed + 1,
         size=manifest.evaluation_size,
         depths=manifest.out_of_range_depths,
+        variables=manifest.variables,
+        partition="eval",
+        partition_modulus=manifest.holdout_modulus,
+        forbidden_compositions=(manifest.withheld_composition,),
+    )
+    composition = build_logic_composition_dataset(
+        seed=manifest.evaluation_seed + 2,
+        size=manifest.composition_evaluation_size,
+        composition=manifest.withheld_composition,
+        depths=manifest.depths,
         variables=manifest.variables,
         partition="eval",
         partition_modulus=manifest.holdout_modulus,
@@ -106,6 +123,7 @@ def run_logic_experiment(
     write_logic_jsonl(train, output / "static-train.jsonl")
     write_logic_jsonl(heldout, output / "evaluation-heldout.jsonl")
     write_logic_jsonl(deeper, output / "evaluation-deeper-formulas.jsonl")
+    write_logic_jsonl(composition, output / "evaluation-withheld-composition.jsonl")
 
     factory = create_adapter or _factory(manifest)
     result: dict[str, object] = {
@@ -145,6 +163,7 @@ def run_logic_experiment(
         eval_started = perf_counter()
         heldout_result = evaluate_logic_tasks(adapter, heldout)
         deeper_result = evaluate_logic_tasks(adapter, deeper)
+        composition_result = evaluate_logic_tasks(adapter, composition)
         _sync(adapter)
         eval_seconds = perf_counter() - eval_started
         peak_reader = getattr(adapter, "peak_memory_bytes", None)
@@ -160,10 +179,11 @@ def run_logic_experiment(
             "evaluation": {
                 "heldout": heldout_result.to_dict(),
                 "deeper_formulas": deeper_result.to_dict(),
+                "withheld_composition": composition_result.to_dict(),
             },
             "measurement_overhead": {
                 "checkpoint_generation_calls": checkpoint_calls,
-                "final_evaluation_generation_calls": len(heldout) + len(deeper),
+                "final_evaluation_generation_calls": len(heldout) + len(deeper) + len(composition),
                 "checkpoint_seconds": checkpoint_seconds,
                 "final_evaluation_seconds": eval_seconds,
                 "regime_wall_seconds": perf_counter() - wall_started,

@@ -21,13 +21,15 @@ class LogicExperimentManifest:
     depths: tuple[int, ...]
     out_of_range_depths: tuple[int, ...]
     variables: tuple[str, ...]
+    withheld_composition: tuple[str, str]
+    composition_evaluation_size: int
     variants_per_failure: int
     holdout_modulus: int
 
     @classmethod
     def from_json(cls, path: str | Path) -> "LogicExperimentManifest":
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        for key in ("depths", "out_of_range_depths", "variables"):
+        for key in ("depths", "out_of_range_depths", "variables", "withheld_composition"):
             payload[key] = tuple(payload[key])
         manifest = cls(**payload)
         manifest.validate()
@@ -47,6 +49,13 @@ class LogicExperimentManifest:
             for name in self.variables
         ):
             raise ValueError("variables must contain single ASCII letters")
+        if len(self.withheld_composition) != 2 or any(
+            kind not in {"not", "and", "or", "xor"}
+            for kind in self.withheld_composition
+        ):
+            raise ValueError("withheld_composition must contain two logic operators")
+        if self.composition_evaluation_size < 1:
+            raise ValueError("composition_evaluation_size must be positive")
         if self.checkpoint_evaluation_size < 1 or self.checkpoint_evaluation_size > self.evaluation_size:
             raise ValueError("invalid checkpoint_evaluation_size")
         if self.checkpoint_interval_tokens < 1:

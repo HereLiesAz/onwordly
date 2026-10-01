@@ -5,9 +5,11 @@ from random import Random
 from typing import Sequence
 
 from onwordly.tasks.formal_logic import (
+    LogicKind,
     LogicPartition,
     LogicTask,
     generate_logic_task,
+    logic_contains_operator_composition,
     logic_partition,
 )
 
@@ -38,6 +40,7 @@ class AdaptiveLogicCurriculum:
         prior_correct: int = 2,
         partition: LogicPartition | None = None,
         partition_modulus: int = 5,
+        forbidden_compositions: Sequence[tuple[LogicKind, LogicKind]] = (),
     ) -> None:
         if not depths or min(depths) < 0:
             raise ValueError("depths must contain non-negative values")
@@ -53,6 +56,7 @@ class AdaptiveLogicCurriculum:
         self.prior_correct = prior_correct
         self.partition = partition
         self.partition_modulus = partition_modulus
+        self.forbidden_compositions = tuple(forbidden_compositions)
         self.buckets = tuple(LogicBucket(depth) for depth in depths)
         self.stats = {bucket: LogicBucketStats() for bucket in self.buckets}
 
@@ -74,6 +78,11 @@ class AdaptiveLogicCurriculum:
         )[0]
 
     def accepts(self, task: LogicTask) -> bool:
+        if any(
+            logic_contains_operator_composition(task.expression, composition)
+            for composition in self.forbidden_compositions
+        ):
+            return False
         return (
             self.partition is None
             or logic_partition(task, modulus=self.partition_modulus) == self.partition

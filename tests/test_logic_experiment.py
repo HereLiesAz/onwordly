@@ -24,11 +24,16 @@ def test_logic_experiment_runs(tmp_path) -> None:
         evaluation_size=6, checkpoint_evaluation_size=3, checkpoint_interval_tokens=5,
         dataset_seed=1, evaluation_seed=2, training_seed=3, learning_rate=2e-5,
         max_new_tokens=4, depths=(1,), out_of_range_depths=(2,),
-        variables=("A","B","C"), variants_per_failure=2, holdout_modulus=5,
+        variables=("A","B","C"), withheld_composition=("xor","not"),
+        composition_evaluation_size=4, variants_per_failure=2, holdout_modulus=5,
     )
     result = run_logic_experiment(
         manifest, output_dir=tmp_path, create_adapter=TinyAdapter
     )
     assert set(result["regimes"]) == {"static","adaptive","error-focused"}
     for regime in result["regimes"].values():
-        assert set(regime["evaluation"]) == {"heldout","deeper_formulas"}
+        assert set(regime["evaluation"]) == {
+            "heldout",
+            "deeper_formulas",
+            "withheld_composition",
+        }

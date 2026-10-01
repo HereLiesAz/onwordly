@@ -1,11 +1,15 @@
 from collections import Counter
 from random import Random
 
-from onwordly.datasets.formal_logic import build_static_logic_dataset
+from onwordly.datasets.formal_logic import (
+    build_logic_composition_dataset,
+    build_static_logic_dataset,
+)
 from onwordly.tasks.formal_logic import (
     LogicExpr,
     evaluate_logic,
     generate_logic_task,
+    logic_contains_operator_composition,
     logic_partition,
     make_logic_task,
 )
@@ -45,3 +49,29 @@ def test_logic_dataset_balances_depths() -> None:
     tasks = build_static_logic_dataset(seed=3, size=30, depths=(1, 2, 3))
     counts = Counter(task.depth for task in tasks)
     assert max(counts.values()) - min(counts.values()) <= 1
+
+
+def test_withheld_operator_composition_isolated_from_training() -> None:
+    composition = ("xor", "not")
+    train = build_static_logic_dataset(
+        seed=21,
+        size=120,
+        depths=(2, 3),
+        partition="train",
+        forbidden_compositions=(composition,),
+    )
+    evaluation = build_logic_composition_dataset(
+        seed=22,
+        size=40,
+        composition=composition,
+        depths=(2, 3),
+        partition="eval",
+    )
+    assert all(
+        not logic_contains_operator_composition(task.expression, composition)
+        for task in train
+    )
+    assert all(
+        logic_contains_operator_composition(task.expression, composition)
+        for task in evaluation
+    )

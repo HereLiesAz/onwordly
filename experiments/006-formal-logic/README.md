@@ -31,14 +31,15 @@ pairs into train and evaluation sets.
 - adaptive and error-focused depth curricula;
 - equal-token static/adaptive/error-focused runner;
 - held-out and deeper-formula evaluation;
+- isolated withheld parent→child operator-composition evaluation (`XOR → NOT` by default), excluded from all training generators;
 - full and smoke manifests;
 - repeated-seed suite;
 - Kaggle single/suite execution support.
 
 ## Next
 
-1. add withheld operator-composition evaluation;
-2. smoke test the runner;
-3. run one full seed, then repeated seeds only if the path is clean.
+1. smoke test the runner and verify the withheld-composition split;
+2. run one full seed;
+3. only then spend on repeated seeds.
 
 No learned judge or chain-of-thought target is needed at this stage.
