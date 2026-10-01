@@ -52,6 +52,7 @@ def run_logic_suite(
     for regime_name in LOGIC_REGIMES:
         heldout = []
         deeper = []
+        composition = []
         tokens = []
         examples = []
         seconds = []
@@ -59,11 +60,16 @@ def run_logic_suite(
             regime = run["regimes"][regime_name]
             heldout.append(float(regime["evaluation"]["heldout"]["accuracy"]))
             deeper.append(float(regime["evaluation"]["deeper_formulas"]["accuracy"]))
+            composition.append(float(regime["evaluation"]["withheld_composition"]["accuracy"]))
             tokens.append(float(regime["training"]["training_tokens"]))
             examples.append(float(regime["training"]["examples_trained"]))
             seconds.append(float(regime["measurement_overhead"]["regime_wall_seconds"]))
         aggregate["regimes"][regime_name] = {
-            "accuracy": {"heldout": _summary(heldout), "deeper_formulas": _summary(deeper)},
+            "accuracy": {
+                "heldout": _summary(heldout),
+                "deeper_formulas": _summary(deeper),
+                "withheld_composition": _summary(composition),
+            },
             "training_tokens": _summary(tokens),
             "examples_trained": _summary(examples),
             "regime_wall_seconds": _summary(seconds),
