@@ -1,0 +1,17 @@
+from __future__ import annotations
+
+from onwordly.tasks.symbolic import SymbolicTask
+
+
+def parse_symbolic_answer(text: str) -> str | None:
+    stripped = text.strip()
+    if not stripped:
+        return None
+    if any(not symbol.isalpha() or not symbol.isascii() for symbol in stripped):
+        return None
+    return stripped.upper()
+
+
+def verify_symbolic_answer(task: SymbolicTask, response: str) -> bool:
+    parsed = parse_symbolic_answer(response)
+    return parsed == task.answer

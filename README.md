@@ -18,6 +18,14 @@ The first real-model run is currently executing on Kaggle GPU through the centra
 
 See [experiments/001-arithmetic-curriculum](experiments/001-arithmetic-curriculum/README.md).
 
+## Experiment 003 — symbolic substrate
+
+The next exact-verification domain is now implemented at the deterministic
+substrate level: reverse, sort, adjacent-deduplication, and left-rotation tasks.
+Training integration is intentionally not yet claimed as an experiment result.
+
+See [experiments/003-symbolic-transformations](experiments/003-symbolic-transformations/README.md).
+
 ## Experiment 002 — prepared ablation
 
 The next experiment is already scaffolded so we do not have to invent an explanation after seeing Experiment 001.
@@ -76,8 +84,8 @@ Read `AGENTS.md`, then `docs/session-handoff.md`.
 - `docs/session-handoff.md` — current state and next actions.
 - `experiments/` — experiment specifications and manifests.
 - `src/onwordly/datasets/` — frozen dataset generation.
-- `src/onwordly/tasks/` — task generators and split logic.
-- `src/onwordly/verifiers/` — exact/programmatic verification.
+- `src/onwordly/tasks/` — arithmetic and symbolic task generators and split logic.
+- `src/onwordly/verifiers/` — exact/programmatic arithmetic and symbolic verification.
 - `src/onwordly/curricula/` — uniform and adaptive curricula.
 - `src/onwordly/training/` — sources, equal-token harness, evaluation.
 - `src/onwordly/models/` — model adapters.

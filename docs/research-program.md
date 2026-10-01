@@ -51,8 +51,8 @@ Build task generators and exact verifiers for domains where correctness is mecha
 
 Initial domains:
 
-- integer arithmetic;
-- symbolic transformations;
+- integer arithmetic — training harness and live experiments implemented;
+- symbolic transformations — deterministic generator/verifier substrate implemented;
 - constrained string manipulation;
 - simple program execution;
 - formal logic.
