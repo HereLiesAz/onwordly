@@ -13,6 +13,10 @@ from onwordly.experiments.symbolic import run_symbolic_experiment
 from onwordly.experiments.symbolic_manifest import SymbolicExperimentManifest
 from onwordly.experiments.symbolic_suite import run_symbolic_suite
 from onwordly.reporting.symbolic import render_symbolic_result
+from onwordly.experiments.string_manipulation import run_string_experiment
+from onwordly.experiments.string_manifest import StringExperimentManifest
+from onwordly.experiments.string_suite import run_string_suite
+from onwordly.reporting.string_manipulation import render_string_result
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,7 +48,7 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
     seeds_text = values.get("seeds", "3303,4404,5505")
     seeds = tuple(int(value.strip()) for value in seeds_text.split(",") if value.strip())
 
-    if experiment not in {"001", "002", "003"}:
+    if experiment not in {"001", "002", "003", "004"}:
         raise ValueError(f"unsupported experiment: {experiment}")
     if mode not in {"single", "suite"}:
         raise ValueError(f"unsupported mode: {mode}")
@@ -63,6 +67,26 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
 
 def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
     root = Path(output_root)
+
+    if plan.experiment == "004":
+        string_manifest = StringExperimentManifest.from_json(plan.manifest)
+        if plan.mode == "single":
+            output = root / "004-string-manipulation"
+            run_string_experiment(string_manifest, output_dir=output)
+            result_path = output / "summary.json"
+        else:
+            output = root / "004-string-manipulation-suite"
+            run_string_suite(
+                string_manifest,
+                seeds=plan.seeds,
+                output_dir=output,
+            )
+            result_path = output / "aggregate.json"
+        (output / "RESULTS.md").write_text(
+            render_string_result(result_path),
+            encoding="utf-8",
+        )
+        return output
 
     if plan.experiment == "003":
         symbolic_manifest = SymbolicExperimentManifest.from_json(plan.manifest)

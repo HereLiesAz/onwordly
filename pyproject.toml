@@ -24,6 +24,8 @@ onwordly-arithmetic-report = "onwordly.reporting.arithmetic:main"
 onwordly-symbolic = "onwordly.experiments.symbolic:main"
 onwordly-symbolic-suite = "onwordly.experiments.symbolic_suite:main"
 onwordly-symbolic-report = "onwordly.reporting.symbolic:main"
+onwordly-string = "onwordly.experiments.string_manipulation:main"
+onwordly-string-suite = "onwordly.experiments.string_suite:main"
 onwordly-kaggle = "onwordly.experiments.kaggle:main"
 
 [tool.setuptools.packages.find]

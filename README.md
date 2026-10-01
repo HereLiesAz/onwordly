@@ -29,8 +29,8 @@ See [experiments/003-symbolic-transformations](experiments/003-symbolic-transfor
 ## Experiment 004 — constrained string substrate
 
 A third exact-verification domain now has deterministic generation, stable
-train/eval partitioning, and strict verification for several constrained string
-transformations. Training integration is the next step.
+train/eval partitioning, strict verification, adaptive/error-focused curricula,
+an equal-token runner, repeated-seed aggregation, and a Kaggle execution path.
 
 See [experiments/004-string-manipulation](experiments/004-string-manipulation/README.md).
 
