@@ -116,8 +116,9 @@ Supported prepared modes:
 - Experiment 004 + `single` / `suite`
 - Experiment 005 + `single` / `suite`
 - Experiment 006 + `single` / `suite`
+- Experiment 007 + `single` only
 
-Experiment 002 + `suite` intentionally remains blocked until Experiment 001 justifies spending that compute.
+Experiment 002 + `suite` remains gated until Experiment 001 is interpreted. Experiment 007 + `suite` remains gated until the single-run supervision-cost accounting is inspected.
 
 ## Read first in a new session
 
