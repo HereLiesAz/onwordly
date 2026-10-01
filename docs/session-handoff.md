@@ -48,13 +48,13 @@ That file currently contains only instructions because no real model result exis
 
 ## Current blocker
 
-A real model run has not yet been completed. Attempts to launch both CPU and GPU Hugging Face Jobs from the connected account returned HTTP **402 Payment Required**. The connected environment therefore cannot currently execute the Qwen experiment.
+The repository is now registered with the central workflow controller and `.github/workflows/ci.yml` is actively bound to the shared `ci-validation.yml` executor. The bootstrap Python CI run passed before the controller replaced the source with its tracker.
 
-A local container test attempt also could not clone GitHub because that container has no outbound DNS. Do not report the new code as externally executed until CI or another compute environment actually runs it.
+A real model run has not yet been completed. Attempts to launch both CPU and GPU Hugging Face Jobs from the connected account returned HTTP **402 Payment Required**. The connected environment therefore cannot currently execute the Qwen experiment.
 
 ## Exact next actions
 
-1. Let centralized `ci-validation` run once the workflow controller provisions it, or run `pytest` in any Python 3.10+ environment.
+1. Confirm the centralized tracker successfully follows a shared `ci-validation` run on a normal push.
 2. Obtain compute for `Qwen/Qwen2.5-0.5B`.
 3. Run one seed with `onwordly-arithmetic`.
 4. Render and inspect the single-run report.
