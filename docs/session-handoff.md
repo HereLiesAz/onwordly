@@ -46,15 +46,16 @@ Experiment 002 / suite is intentionally gated.
 
 ## Current live run
 
-The first real Experiment 001 Kaggle GPU run remains the primary result path:
+The original Kaggle run `36852362318` was cancelled after a later development push superseded it.
 
-- trigger commit: `fde7b80723be0eb78992a2e217a804a76ca6c415`;
-- target tracker run: `36852342199`;
-- central Kaggle run: `36852362318`;
-- central Kaggle job: `110336796322`;
-- accelerator: `NvidiaTeslaT4`.
+The current canonical Experiment 001 single run is:
 
-A later repository-development commit also touched `.kaggle-run` while the new plan runner was being introduced, which may have generated an additional single-run dispatch. Treat the earliest successful run above as the canonical first-run result unless it fails.
+- source commit: `4cc7a681354aa4d3817c6cc2e32867d8a975aa47`;
+- central Kaggle run: `36853381019`;
+- central Kaggle job: `110340375478`;
+- accelerator: `NvidiaTeslaT4`;
+- authentication, package build, and Kaggle submission: **successful**;
+- current state: waiting for the Kaggle kernel.
 
 The old GitHub-hosted CPU experiment is superseded.
 
