@@ -25,6 +25,8 @@ from onwordly.experiments.formal_logic import run_logic_experiment
 from onwordly.experiments.logic_manifest import LogicExperimentManifest
 from onwordly.experiments.logic_suite import run_logic_suite
 from onwordly.reporting.formal_logic import render_logic_result
+from onwordly.experiments.process_supervision import run_process_supervision_experiment
+from onwordly.reporting.process_supervision import render_process_supervision_result
 
 
 DEFAULT_MANIFESTS: dict[str, str] = {
@@ -34,6 +36,7 @@ DEFAULT_MANIFESTS: dict[str, str] = {
     "004": "experiments/004-string-manipulation/manifest.json",
     "005": "experiments/005-program-execution/manifest.json",
     "006": "experiments/006-formal-logic/manifest.json",
+    "007": "experiments/007-program-process-supervision/manifest.json",
 }
 
 
@@ -71,6 +74,8 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
         raise ValueError("at least one seed is required")
     if experiment == "002" and mode == "suite":
         raise ValueError("Experiment 002 suite is gated until Experiment 001 is interpreted")
+    if experiment == "007" and mode == "suite":
+        raise ValueError("Experiment 007 suite is gated until its single-run accounting is inspected")
 
     return KaggleRunPlan(
         experiment=experiment,
@@ -82,6 +87,17 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
 
 def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
     root = Path(output_root)
+
+    if plan.experiment == "007":
+        program_manifest = ProgramExperimentManifest.from_json(plan.manifest)
+        output = root / "007-program-process-supervision"
+        run_process_supervision_experiment(program_manifest, output_dir=output)
+        result_path = output / "summary.json"
+        (output / "RESULTS.md").write_text(
+            render_process_supervision_result(result_path),
+            encoding="utf-8",
+        )
+        return output
 
     if plan.experiment == "006":
         logic_manifest = LogicExperimentManifest.from_json(plan.manifest)
