@@ -58,9 +58,21 @@ class TrainingRunResult:
             return 0.0
         return self.correct_before_train / self.generation_calls
 
+    @property
+    def mean_training_tokens_per_example(self) -> float | None:
+        if self.examples_trained == 0:
+            return None
+        return self.training_tokens / self.examples_trained
+
+    @property
+    def token_budget_utilization(self) -> float:
+        return self.training_tokens / self.token_budget
+
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["pretrain_accuracy"] = self.pretrain_accuracy
+        payload["mean_training_tokens_per_example"] = self.mean_training_tokens_per_example
+        payload["token_budget_utilization"] = self.token_budget_utilization
         return payload
 
 
