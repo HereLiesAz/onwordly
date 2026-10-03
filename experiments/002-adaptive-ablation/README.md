@@ -24,6 +24,28 @@ This isolates three questions:
 - Does competence-responsive bucket selection add value beyond online generation?
 - Do local failure variants add value independently of adaptive bucket selection?
 
+## Full fine-tuning versus LoRA
+
+`manifest-lora.json` is identical to `manifest.json` except for the update method:
+a LoRA adapter (rank 16, alpha 32, no dropout, all attention and MLP projections)
+on a frozen base, with learning rate 2e-4 instead of 2e-5. Running all five regimes
+under both manifests asks whether any regime effect survives a change of update
+method. The two manifests differ in two linked fields, so a difference between
+them is attributed to "LoRA at its usual settings", not to rank or learning rate
+alone.
+
+- LoRA is prior art; it is a factor under test here, not a contribution.
+- The rank, alpha and learning rate are common PEFT defaults, not tuned here.
+  Record any pilot that changes them.
+- Token budgets are identical; LoRA buys no extra tokens. It changes memory,
+  speed and adapter size, which the summary records (`trainable_parameter_count`,
+  peak memory, wall time).
+- LoRA tends to disturb the base model less, which can raise out-of-range and
+  transfer scores independently of curriculum. Compare regimes within a method
+  first, then compare methods.
+
+Run it by pointing `.kaggle-run` at `experiments/002-adaptive-ablation/manifest-lora.json`.
+
 ## Claim discipline
 
 Nothing in these mechanisms is claimed as novel. The experiment measures contribution of established components inside the Onwordly training loop.

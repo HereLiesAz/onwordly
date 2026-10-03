@@ -13,8 +13,10 @@ Tasks contain:
 - a required exact `true` or `false` answer.
 
 Expression depth controls difficulty. The generator produces an AST, the local
-evaluator computes the target, and a stable hash partitions formula/assignment
-pairs into train and evaluation sets.
+evaluator computes the target, and a stable hash of the formula partitions it
+into train or evaluation, so every assignment of a held-out formula is held out.
+(Before 2026-10-03 the hash covered formula plus assignment, so held-out formulas
+were seen in training under other assignments.)
 
 ## Implemented
 

@@ -46,6 +46,13 @@ def test_equal_token_harness_never_overshoots() -> None:
     assert result.training_tokens <= result.token_budget
     assert result.mean_training_tokens_per_example == 7
     assert result.token_budget_utilization == 14 / 20
+    assert result.unused_token_budget == 6
+    assert result.unique_examples == 1
+    assert result.repeated_examples == 1
+    assert result.generated_characters == 2 * len("wrong")
+    payload = result.to_dict()
+    for key in ("generation_seconds", "verifier_seconds", "training_core_seconds"):
+        assert payload[key] >= 0
 
 
 def test_checkpoints_include_baseline_and_final_state() -> None:
