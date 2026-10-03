@@ -21,7 +21,10 @@ class HuggingFaceCausalLMAdapter:
         device: str = "auto",
         gradient_clip_norm: float | None = 1.0,
         seed: int | None = None,
+        lora: dict[str, Any] | None = None,
     ) -> None:
+        """``lora`` (optional) wraps the model with a PEFT LoRA adapter and trains only
+        the adapter weights. Keys: ``r``, ``alpha``, ``dropout``, ``target_modules``."""
         try:
             import torch
             from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -40,9 +43,30 @@ class HuggingFaceCausalLMAdapter:
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        self.lora = dict(lora) if lora is not None else None
+        if self.lora is not None:
+            try:
+                from peft import LoraConfig, get_peft_model
+            except ImportError as exc:
+                raise RuntimeError(
+                    "LoRA requires peft. Install with: pip install -e '.[train]'"
+                ) from exc
+            self.model = get_peft_model(
+                self.model,
+                LoraConfig(
+                    r=int(self.lora["r"]),
+                    lora_alpha=int(self.lora["alpha"]),
+                    lora_dropout=float(self.lora.get("dropout", 0.0)),
+                    target_modules=list(self.lora["target_modules"]),
+                    bias="none",
+                    task_type="CAUSAL_LM",
+                ),
+            )
         self.max_new_tokens = max_new_tokens
         self.gradient_clip_norm = gradient_clip_norm
         self.parameter_count = sum(parameter.numel() for parameter in self.model.parameters())
+        trainable = [parameter for parameter in self.model.parameters() if parameter.requires_grad]
+        self.trainable_parameter_count = sum(parameter.numel() for parameter in trainable)
 
         if self.tokenizer.pad_token_id is None:
             if self.tokenizer.eos_token_id is None:
@@ -60,7 +84,7 @@ class HuggingFaceCausalLMAdapter:
         self.device = torch.device(device)
         self.device_name = str(self.device)
         self.model.to(self.device)
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
+        self.optimizer = torch.optim.AdamW(trainable, lr=learning_rate)
 
     @staticmethod
     def _format_prompt(prompt: str) -> str:
@@ -123,7 +147,10 @@ class HuggingFaceCausalLMAdapter:
         loss = outputs.loss
         loss.backward()
         if self.gradient_clip_norm is not None:
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip_norm)
+            torch.nn.utils.clip_grad_norm_(
+                [parameter for parameter in self.model.parameters() if parameter.requires_grad],
+                self.gradient_clip_norm,
+            )
         self.optimizer.step()
 
         return TrainStepMetrics(loss=float(loss.detach().cpu()), tokens=len(all_ids))
