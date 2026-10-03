@@ -4,13 +4,14 @@ import re
 
 from onwordly.tasks.arithmetic import ArithmeticTask
 
-_INTEGER = re.compile(r"^[+-]?\d+$")
+# Canonical decimal only: ASCII digits, optional minus, no "+", no leading zeros.
+_INTEGER = re.compile(r"-?(?:0|[1-9][0-9]*)")
 
 
 def parse_integer_answer(response: str) -> int | None:
     """Parse a deliberately strict integer-only response."""
     value = response.strip()
-    if not _INTEGER.fullmatch(value):
+    if not _INTEGER.fullmatch(value) or value == "-0":
         return None
     return int(value)
 

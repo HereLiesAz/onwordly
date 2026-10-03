@@ -33,7 +33,7 @@ def build_static_logic_dataset(
     rng = Random(seed)
     tasks: list[LogicTask] = []
     for index in range(size):
-        depth = eligible_depths[index % len(eligible_depths)]
+        depth = depths[index % len(depths)]
         for _ in range(10_000):
             task = generate_logic_task(rng, depth, variables=variables)
             if any(
@@ -77,7 +77,7 @@ def build_logic_composition_dataset(
     rng = Random(seed)
     tasks: list[LogicTask] = []
     for index in range(size):
-        depth = depths[index % len(depths)]
+        depth = eligible_depths[index % len(eligible_depths)]
         for _ in range(20_000):
             task = generate_logic_task(rng, depth, variables=variables)
             if not logic_contains_operator_composition(task.expression, composition):

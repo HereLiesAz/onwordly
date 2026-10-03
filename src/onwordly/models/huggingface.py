@@ -35,6 +35,8 @@ class HuggingFaceCausalLMAdapter:
             torch.manual_seed(seed)
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(seed)
+            # Deterministic kernels where available; warn rather than fail elsewhere.
+            torch.use_deterministic_algorithms(True, warn_only=True)
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name)
@@ -60,8 +62,13 @@ class HuggingFaceCausalLMAdapter:
         self.model.to(self.device)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
 
+    @staticmethod
+    def _format_prompt(prompt: str) -> str:
+        """Single prompt format shared by training and generation."""
+        return prompt.rstrip() + "\n"
+
     def _training_ids(self, prompt: str, target: str) -> tuple[list[int], list[int]]:
-        prompt_text = prompt.rstrip() + "\n"
+        prompt_text = self._format_prompt(prompt)
         prompt_ids = self.tokenizer.encode(prompt_text, add_special_tokens=True)
         target_ids = self.tokenizer.encode(target.strip(), add_special_tokens=False)
         if self.tokenizer.eos_token_id is not None:
@@ -76,7 +83,7 @@ class HuggingFaceCausalLMAdapter:
 
     def generate(self, prompt: str) -> str:
         torch = self.torch
-        encoded = self.tokenizer(prompt, return_tensors="pt")
+        encoded = self.tokenizer(self._format_prompt(prompt), return_tensors="pt")
         encoded = {key: value.to(self.device) for key, value in encoded.items()}
         prompt_length = encoded["input_ids"].shape[1]
 

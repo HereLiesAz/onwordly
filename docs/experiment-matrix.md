@@ -5,13 +5,13 @@ fixed, and what evidence it is allowed to support.
 
 | ID | Domain / question | Primary regimes | Exact evaluation | Execution state |
 | --- | --- | --- | --- | --- |
-| 001 | Arithmetic curriculum efficiency | static / adaptive / error-focused | held-out operands; prompt transfer only; joint operand+prompt transfer; longer digits | transparent Kaggle suite run 9 queued; prior watcher canceled after failed GPU submission |
-| 002 | Arithmetic mechanism ablation | static / online-uniform / adaptive / error-focused-uniform / error-focused-adaptive | same arithmetic controls | transparent Kaggle ablation run 10 queued; prior watcher canceled after failed GPU submission; repeated suite gated |
+| 001 | Arithmetic curriculum efficiency | static / adaptive / error-focused | held-out operands; prompt transfer only; joint operand+prompt transfer; longer digits | suite run-plan revision 14 launched 2026-10-01; outcome unrecorded; Actions since disabled |
+| 002 | Arithmetic mechanism ablation | static / online-uniform / adaptive / error-focused-uniform / error-focused-adaptive | same arithmetic controls | single ablation run-plan revision 15 launched 2026-10-01 ahead of its 001 gate; outcome unrecorded; repeated suite gated |
 | 003 | Symbolic transformations | static / adaptive / error-focused | held-out sequences; longer sequences; unseen two-step composition | runner, smoke/full manifests, suite and Kaggle path prepared |
-| 004 | Constrained strings | static / adaptive / error-focused | held-out strings; longer strings | runner, smoke/full manifests, suite and Kaggle path prepared |
+| 004 | Constrained strings | static / adaptive / error-focused | held-out strings; longer strings; unseen two-operation composition | runner, smoke/full manifests, suite and Kaggle path prepared |
 | 005 | Stateful program execution | static / adaptive / error-focused | held-out programs; longer programs; withheld adjacent instruction transition | runner, smoke/full manifests, suite and Kaggle path prepared |
-| 006 | Formal logic | static / adaptive / error-focused | held-out formulas; deeper formulas; withheld parent→child operator composition | runner, smoke/full manifests, suite and Kaggle path prepared |
-| 007 | Exact process supervision | outcome-only / trace-supervised | final answer; exact machine-state trace | smoke/full ablation scaffold prepared; no real-model run |
+| 006 | Formal logic | static / adaptive / error-focused | held-out formulas (partitioned by formula); deeper formulas; withheld parent→child operator composition | runner, smoke/full manifests, suite and Kaggle path prepared; dataset builders fixed 2026-10-03 |
+| 007 | Exact process supervision | outcome-only / trace-supervised | final answer; exact machine-state trace | smoke/full ablation scaffold prepared; no real-model run; example-count confound unresolved |
 
 ## Cross-experiment invariants
 
@@ -45,7 +45,7 @@ positive result.
 ## Compute gates
 
 - Experiment 001 and Experiment 002 currently own the active real-model budget.
-- Experiments 003–006 should run smoke-first after current code passes centralized CI.
+- Experiments 003–006 should run smoke-first after current code passes centralized CI. No smoke result is recorded yet.
 - Experiment 007 should not receive full repeated-seed compute until its token-cost
   accounting and common-prompt comparison survive smoke validation.
 - Search, learned process reward, self-play, and multi-agent language games remain

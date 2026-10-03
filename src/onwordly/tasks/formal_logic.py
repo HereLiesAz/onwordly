@@ -169,9 +169,8 @@ def generate_logic_task(
 def logic_partition(task: LogicTask, *, modulus: int = 5) -> LogicPartition:
     if modulus < 2:
         raise ValueError("modulus must be at least 2")
-    assignment_text = ",".join(
-        f"{name}:{int(value)}" for name, value in task.assignment
-    )
-    key = f"{task.expression.render()}|{assignment_text}".encode("utf-8")
+    # Partition by formula alone: every assignment of a held-out formula is held
+    # out, so "held-out" means an unseen formula, not an unseen assignment.
+    key = task.expression.render().encode("utf-8")
     residue = int.from_bytes(blake2b(key, digest_size=8).digest(), "big") % modulus
     return "eval" if residue == 0 else "train"

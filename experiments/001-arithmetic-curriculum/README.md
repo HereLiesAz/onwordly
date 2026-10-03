@@ -14,6 +14,11 @@ All regimes use a fresh copy of the same base model, identical optimizer setting
 
 Every regime performs a pre-update generation and exact verification for each training example. Adaptive regimes use that observation to steer later sampling; the static regime discards it.
 
+The harness records that work separately from training: `generation_seconds`,
+`verifier_seconds`, `generated_characters`, and `training_core_seconds` (update
+step only). It also records `repeated_examples`, since the static pool cycles while
+online regimes draw fresh tasks, and `unused_token_budget`.
+
 ### A. Static SFT
 
 A deterministic approximately balanced dataset is generated once, frozen, shuffled, and cycled.

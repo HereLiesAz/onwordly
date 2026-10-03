@@ -20,10 +20,10 @@ def parse_program_trace(response: str) -> tuple[int, ...] | None:
     parts = stripped.split(",")
     if any(part.strip() != part or not part for part in parts):
         return None
-    try:
-        return tuple(int(part) for part in parts)
-    except ValueError:
+    parsed = tuple(parse_integer_answer(part) for part in parts)
+    if any(value is None for value in parsed):
         return None
+    return parsed  # type: ignore[return-value]
 
 
 def verify_program_trace(task: ProgramTraceTask, response: str) -> bool:
@@ -31,13 +31,24 @@ def verify_program_trace(task: ProgramTraceTask, response: str) -> bool:
 
 
 def parse_supervised_program_final(response: str) -> int | None:
+    """Parse ``FINAL=<integer>`` or a well-formed ``TRACE=<states>;FINAL=<integer>``.
+
+    Arbitrary text before ``FINAL=`` is rejected; a trace prefix must parse, though
+    its correctness is judged only by ``verify_supervised_program_trace``.
+    """
     stripped = response.strip()
+    if stripped.startswith("TRACE="):
+        if ";FINAL=" not in stripped:
+            return None
+        trace_text, stripped = stripped[len("TRACE="):].split(";FINAL=", 1)
+        if parse_program_trace(trace_text) is None:
+            return None
+        stripped = "FINAL=" + stripped
     marker = "FINAL="
-    index = stripped.rfind(marker)
-    if index < 0:
+    if not stripped.startswith(marker):
         return None
-    suffix = stripped[index + len(marker):]
-    if not suffix or ";" in suffix or "," in suffix or " " in suffix:
+    suffix = stripped[len(marker):]
+    if suffix.strip() != suffix:
         return None
     return parse_integer_answer(suffix)
 

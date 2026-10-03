@@ -48,7 +48,12 @@ class TrainingRunResult:
     verifier_calls: int
     correct_before_train: int
     mean_loss: float | None
+    # Wall-clock split so inference/verifier work is never billed as training.
     training_core_seconds: float
+    generation_seconds: float = 0.0
+    verifier_seconds: float = 0.0
+    generated_characters: int = 0
+    unique_examples: int = 0
     bucket_stats: dict[str, dict[str, float | int]] = field(default_factory=dict)
     checkpoints: tuple[dict[str, object], ...] = ()
 
@@ -68,11 +73,23 @@ class TrainingRunResult:
     def token_budget_utilization(self) -> float:
         return self.training_tokens / self.token_budget
 
+    @property
+    def unused_token_budget(self) -> int:
+        """Tokens left when the next task no longer fit; compare across regimes."""
+        return self.token_budget - self.training_tokens
+
+    @property
+    def repeated_examples(self) -> int:
+        """Examples seen more than once (static pool cycling vs fresh online data)."""
+        return self.examples_trained - self.unique_examples
+
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["pretrain_accuracy"] = self.pretrain_accuracy
         payload["mean_training_tokens_per_example"] = self.mean_training_tokens_per_example
         payload["token_budget_utilization"] = self.token_budget_utilization
+        payload["unused_token_budget"] = self.unused_token_budget
+        payload["repeated_examples"] = self.repeated_examples
         return payload
 
 
@@ -92,6 +109,8 @@ def run_equal_token_training(
     Every regime performs the same pre-update generation and verification step.
     Adaptive sources may use that observation to choose future tasks. Optional
     checkpoint evaluation is read-only: its results are never fed to the source.
+    Timing is split: generation_seconds, verifier_seconds and training_core_seconds
+    (the update step alone) are recorded separately.
     """
     if token_budget < 1:
         raise ValueError("token_budget must be at least 1")
@@ -107,6 +126,10 @@ def run_equal_token_training(
     verifier_calls = 0
     correct_before_train = 0
     training_core_seconds = 0.0
+    generation_seconds = 0.0
+    verifier_seconds = 0.0
+    generated_characters = 0
+    seen_examples: set[tuple[str, str]] = set()
     losses: list[float] = []
     buckets: dict[str, BucketRunStats] = {}
     checkpoints: list[dict[str, object]] = []
@@ -134,8 +157,14 @@ def run_equal_token_training(
         _synchronize_adapter(adapter)
         started = perf_counter()
         response = adapter.generate(task.prompt)
+        _synchronize_adapter(adapter)
+        generated = perf_counter()
+        generation_seconds += generated - started
         generation_calls += 1
+        generated_characters += len(response)
         correct = verifier(task, response)
+        verified = perf_counter()
+        verifier_seconds += verified - generated
         verifier_calls += 1
         correct_before_train += int(correct)
         source.observe(task, correct)
@@ -145,6 +174,7 @@ def run_equal_token_training(
         bucket.attempts += 1
         bucket.correct_before_train += int(correct)
 
+        update_started = perf_counter()
         step = adapter.train_example(task.prompt, target)
         if step.tokens != planned_tokens:
             raise RuntimeError(
@@ -152,7 +182,8 @@ def run_equal_token_training(
                 f"planned={planned_tokens}, actual={step.tokens}"
             )
         _synchronize_adapter(adapter)
-        training_core_seconds += perf_counter() - started
+        training_core_seconds += perf_counter() - update_started
+        seen_examples.add((task.prompt, target))
 
         training_tokens += step.tokens
         examples_trained += 1
@@ -207,6 +238,10 @@ def run_equal_token_training(
         correct_before_train=correct_before_train,
         mean_loss=fmean(losses) if losses else None,
         training_core_seconds=training_core_seconds,
+        generation_seconds=generation_seconds,
+        verifier_seconds=verifier_seconds,
+        generated_characters=generated_characters,
+        unique_examples=len(seen_examples),
         bucket_stats=bucket_payload,
         checkpoints=tuple(checkpoints),
     )
