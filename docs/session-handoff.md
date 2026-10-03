@@ -109,6 +109,19 @@ Open, not fixed:
 - Checkpoint evaluation reuses the first `checkpoint_evaluation_size` items of the final held-out set; tokens-to-threshold is not independent of final accuracy.
 - Experiments 001 and 002 share an identical manifest, so their static baselines are the same condition, not independent replications.
 
+## 2026-10-03 pre-compute checks
+
+CPU-only, no GPU spend. Scripts live in `scripts/`.
+
+- **End-to-end smoke** (`scripts/smoke_all.py`): every experiment's smoke manifest through the real Hugging Face adapter with `sshleifer/tiny-gpt2` — 001–007 single and 001/003/004/005/006 suite — all 12 pass (torch 2.14.1+cpu, transformers 5.18.0). This validates adapter, token accounting, serialization, reports and run-plan dispatch; it says nothing about learning.
+- **Dataset and budget audit** (`scripts/audit_datasets.py`, report in `docs/dataset-audit.md`): full manifests, real Qwen tokenizer, no model.
+  - Zero item overlap between static training data and every held-out, longer, composition, withheld-prompt and withheld-transition split. The only overlap is 001's prompt-transfer-only split, by design.
+  - The 100k budget buys about half the 10k static pool in 001/002 (~5.3k examples), so static data is not cycled. The "repeated examples" seen there are duplicates already inside the pool: the 1–2 digit item space is small (10k rows hold 6.3k distinct items; held-out holds 659 distinct in 1000 rows). Online regimes repeat at the same rate.
+  - Examples bought per 100k tokens vary about 5× across domains (001 ≈ 5.3k, 003 ≈ 3.0k, 006 ≈ 2.0k, 004 ≈ 1.8k, 005 ≈ 1.5k, 007 ≈ 1.0–1.2k). Compare domains on examples and tokens, not budget alone.
+  - 007 confound quantified: trace supervision buys 1041 examples versus 1225 for outcome-only (−15%).
+  - 006 answers are ~52–56% `false`; a constant-`false` model scores about 0.55, so judge logic accuracy against that floor.
+- **Untrained baseline** (`scripts/baseline_eval.py`, report in `docs/baseline.md`): Qwen2.5-0.5B, greedy, 50 sampled rows per split.
+
 ## Exact next actions
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.

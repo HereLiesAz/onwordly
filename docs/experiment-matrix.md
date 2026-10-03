@@ -45,7 +45,7 @@ positive result.
 ## Compute gates
 
 - Experiment 001 and Experiment 002 currently own the active real-model budget.
-- Experiments 003–006 should run smoke-first after current code passes centralized CI. No smoke result is recorded yet.
+- Experiments 003–006 should run smoke-first after current code passes centralized CI. A CPU tiny-model smoke of 001–007 passed on 2026-10-03 (`scripts/smoke_all.py`); a real-model GPU smoke is still required.
 - Experiment 007 should not receive full repeated-seed compute until its token-cost
   accounting and common-prompt comparison survive smoke validation.
 - Search, learned process reward, self-play, and multi-agent language games remain
