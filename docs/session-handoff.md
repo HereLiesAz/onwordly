@@ -143,6 +143,10 @@ CPU-only, no GPU spend. Scripts live in `scripts/`.
 - **Shared format warm-up.** Manifests for 001–006 accept `format_warmup_tokens` (default 0 = off). Before each regime the harness trains, in order, on the tail of the static training pool until that many tokens are used, with no generation, verification or source observation. Warm-up tokens count toward `token_budget`, so totals stay matched, and every regime gets the identical warm-up. Results record `warmup_tokens` and `warmup_examples`. Experiment 007 rejects it, since each arm's output format is the variable under test.
 - No manifest enables warm-up yet. Choose a size (for example 5–10% of the budget) from a pilot that shows exact accuracy rising on a held-out sample, and record that pilot as its provenance.
 
+## GPU baselines
+
+Untrained baselines now run as a Kaggle plan (`experiment: baseline`, keys `models`, `chat_template` = no/yes/both, `per_split`) or via `notebooks/baseline_colab.ipynb`. Audit and baseline code moved into `onwordly.diagnostics` (`onwordly-audit`, `onwordly-baseline`); `scripts/` keeps thin wrappers. Next baseline to run: base vs `Qwen/Qwen2.5-0.5B-Instruct`, raw prompts vs chat template, 200 rows per split. Qwen's default chat template turns a 13-token arithmetic prompt into 42 tokens (it adds a system message), so chat-format training would buy far fewer examples per budget.
+
 ## Exact next actions
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.

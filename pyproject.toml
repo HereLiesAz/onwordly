@@ -37,6 +37,8 @@ onwordly-logic = "onwordly.experiments.formal_logic:main"
 onwordly-logic-suite = "onwordly.experiments.logic_suite:main"
 onwordly-logic-report = "onwordly.reporting.formal_logic:main"
 onwordly-kaggle = "onwordly.experiments.kaggle:main"
+onwordly-audit = "onwordly.diagnostics.audit:main"
+onwordly-baseline = "onwordly.diagnostics.baseline:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

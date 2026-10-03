@@ -46,6 +46,8 @@ class KaggleRunPlan:
     mode: str
     manifest: str
     seeds: tuple[int, ...]
+    # Extra plan keys, used by the "baseline" plan (models, chat_template, per_split).
+    options: tuple[tuple[str, str], ...] = ()
 
 
 def load_run_plan(path: str | Path) -> KaggleRunPlan:
@@ -67,6 +69,22 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
     seeds_text = values.get("seeds", "3303,4404,5505")
     seeds = tuple(int(value.strip()) for value in seeds_text.split(",") if value.strip())
 
+    if experiment == "baseline":
+        known = {"experiment", "mode", "backend", "accelerator", "run", "models", "chat_template", "per_split"}
+        unknown = set(values) - known
+        if unknown:
+            raise ValueError(f"unsupported baseline plan keys: {sorted(unknown)}")
+        if values.get("chat_template", "no") not in {"no", "yes", "both"}:
+            raise ValueError("chat_template must be no, yes or both")
+        return KaggleRunPlan(
+            experiment=experiment,
+            mode="single",
+            manifest="",
+            seeds=seeds,
+            options=tuple(
+                (key, values[key]) for key in ("models", "chat_template", "per_split") if key in values
+            ),
+        )
     if experiment not in DEFAULT_MANIFESTS:
         raise ValueError(f"unsupported experiment: {experiment}")
     if mode not in {"single", "suite"}:
@@ -86,8 +104,36 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
     )
 
 
+def _execute_baseline(plan: KaggleRunPlan, root: Path) -> Path:
+    """Untrained-model baselines: build frozen eval data, then score each model."""
+    from onwordly.diagnostics import audit, baseline
+
+    options = dict(plan.options)
+    models = [model.strip() for model in options.get("models", "Qwen/Qwen2.5-0.5B").split(",") if model.strip()]
+    chat = options.get("chat_template", "no")
+    variants = {"no": [False], "yes": [True], "both": [False, True]}[chat]
+    per_split = options.get("per_split", "200")
+
+    output = root / "baseline"
+    data = output / "data"
+    audit.main(["--out", str(data), "--report", str(output / "dataset-audit.md")])
+    for model in models:
+        for use_chat in variants:
+            label = model.replace("/", "--") + ("-chat" if use_chat else "-raw")
+            args = ["--data", str(data), "--model", model, "--per-split", per_split,
+                    "--report", str(output / f"baseline-{label}.md")]
+            if use_chat:
+                args.append("--chat-template")
+            baseline.main(args)
+            (data / "baseline.json").rename(output / f"baseline-{label}.json")
+    return output
+
+
 def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
     root = Path(output_root)
+
+    if plan.experiment == "baseline":
+        return _execute_baseline(plan, root)
 
     if plan.experiment == "007":
         program_manifest = ProgramExperimentManifest.from_json(plan.manifest)

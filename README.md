@@ -106,6 +106,20 @@ onwordly-program
 onwordly-logic
 ```
 
+## Untrained baselines on a GPU
+
+Baselines are too slow on CPU. Run them on Kaggle with a `.kaggle-run` plan:
+
+~~~text
+experiment: baseline
+models: Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-0.5B-Instruct
+chat_template: both
+per_split: 200
+run: 1
+~~~
+
+`chat_template` is `no` (raw prompts), `yes` (the model's chat template) or `both`. Outputs land in `results/baseline/`: the dataset audit plus one exact/lenient report per model and prompt format. On Colab, open `notebooks/baseline_colab.ipynb`, which runs the same plan.
+
 ## Kaggle execution
 
 `.kaggle-run` is the repository-owned run plan consumed by the centralized Kaggle executor.

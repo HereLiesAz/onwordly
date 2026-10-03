@@ -128,3 +128,30 @@ def test_default_manifest_matches_experiment(
     )
     plan = load_run_plan(plan_path)
     assert plan.manifest == expected
+
+
+def test_baseline_plan_parses_options(tmp_path: Path) -> None:
+    plan_path = tmp_path / ".kaggle-run"
+    plan_path.write_text(
+        "experiment: baseline\n"
+        "backend: kaggle\n"
+        "models: Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-0.5B-Instruct\n"
+        "chat_template: both\n"
+        "per_split: 200\n"
+        "run: 1\n",
+        encoding="utf-8",
+    )
+    plan = load_run_plan(plan_path)
+    assert plan.experiment == "baseline"
+    assert dict(plan.options) == {
+        "models": "Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-0.5B-Instruct",
+        "chat_template": "both",
+        "per_split": "200",
+    }
+
+
+def test_baseline_plan_rejects_unknown_keys(tmp_path: Path) -> None:
+    plan_path = tmp_path / ".kaggle-run"
+    plan_path.write_text("experiment: baseline\nchat_template: maybe\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_run_plan(plan_path)
