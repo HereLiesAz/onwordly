@@ -27,12 +27,16 @@ Experiment execution is centralized through `.github/workflows/kaggle-experiment
 The central workflow:
 
 - uses the repository-level `KAGGLE_TOKEN`;
-- submits a private Kaggle script;
+- packages and submits a private Kaggle script;
 - enables Internet access;
 - requests `NvidiaTeslaT4`;
-- polls the kernel to completion;
-- downloads Kaggle outputs;
-- preserves them as a GitHub Actions artifact.
+- registers a signed, run-scoped callback with the central Cloudflare Worker;
+- exits after Kaggle confirms the submission;
+- leaves the target commit status pending while compute runs;
+- has the Kaggle process report success/failure directly to the Worker;
+- lets the Worker finalize the target commit status and dispatch a short result-collection action.
+
+No GitHub Actions runner polls Kaggle or remains alive for the duration of model training.
 
 The repository now owns the actual run intent in `.kaggle-run`. The central purpose profile calls `onwordly-kaggle`, so changing from a single run to the repeated-seed suite no longer requires editing the central controller.
 
@@ -70,7 +74,7 @@ Experiment 002 was launched before Experiment 001 produced the repeated-seed res
 
 In `single` mode the `seeds:` line is ignored; the manifest `training_seed` is used.
 
-The central runner now requires a positive Kaggle push confirmation, treats textual push errors as failures, fails on inaccessible/not-found status responses, limits repeated unknown states, records kernel URL/ref/target SHA/accelerator/submission time, uploads control metadata before polling, and emits timestamped state transitions.
+The central runner requires a positive Kaggle push confirmation, treats textual push errors as submission failures, records kernel URL/ref/target SHA/accelerator/submission time, uploads control metadata, and then exits. The submitted Kaggle process owns terminal reporting through the signed Worker callback; GitHub no longer polls kernel state.
 
 A queued GitHub tracker is not evidence of a live GPU experiment. Only a confirmed Kaggle push followed by QUEUED/RUNNING status counts.
 
