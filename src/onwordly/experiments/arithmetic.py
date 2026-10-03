@@ -89,6 +89,7 @@ def _adapter_factory(manifest: ArithmeticExperimentManifest) -> Callable[[], Mod
             learning_rate=manifest.learning_rate,
             max_new_tokens=manifest.max_new_tokens,
             seed=manifest.training_seed,
+            lora=manifest.lora,
         )
 
     return create
@@ -317,6 +318,8 @@ def run_experiment(
         regime_result = {
             "model": {
                 "parameter_count": getattr(adapter, "parameter_count", None),
+                "trainable_parameter_count": getattr(adapter, "trainable_parameter_count", None),
+                "lora": manifest.lora,
                 "device": getattr(adapter, "device_name", None),
                 "peak_memory_bytes": peak_memory_bytes,
             },

@@ -27,6 +27,8 @@ class ArithmeticExperimentManifest:
     withheld_prompt_styles: tuple[str, ...]
     variants_per_failure: int
     holdout_modulus: int
+    # Optional LoRA config (r, alpha, dropout, target_modules). None = full fine-tuning.
+    lora: dict[str, object] | None = None
 
     @classmethod
     def from_json(cls, path: str | Path) -> "ArithmeticExperimentManifest":
@@ -74,3 +76,9 @@ class ArithmeticExperimentManifest:
             raise ValueError("variants_per_failure must be positive")
         if self.holdout_modulus < 2:
             raise ValueError("holdout_modulus must be at least 2")
+        if self.lora is not None:
+            missing = {"r", "alpha", "target_modules"} - set(self.lora)
+            if missing:
+                raise ValueError(f"lora is missing keys: {sorted(missing)}")
+            if int(self.lora["r"]) < 1 or not self.lora["target_modules"]:
+                raise ValueError("lora needs a positive r and at least one target module")

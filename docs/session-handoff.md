@@ -122,6 +122,10 @@ CPU-only, no GPU spend. Scripts live in `scripts/`.
   - 006 answers are ~52–56% `false`; a constant-`false` model scores about 0.55, so judge logic accuracy against that floor.
 - **Untrained baseline** (`scripts/baseline_eval.py`, report in `docs/baseline.md`): Qwen2.5-0.5B, greedy, 50 sampled rows per split.
 
+## LoRA arm (prepared, not run)
+
+`HuggingFaceCausalLMAdapter` accepts an optional `lora` config (via `peft`) and trains only adapter weights; arithmetic manifests accept a `lora` field. `experiments/002-adaptive-ablation/manifest-lora.json` differs from the full fine-tuning manifest only in `lora` and `learning_rate` (2e-4, an unpiloted PEFT default). Same five regimes, same budgets. See the 002 README. Gated with the rest of 002.
+
 ## Exact next actions
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.
