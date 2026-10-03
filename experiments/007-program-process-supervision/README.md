@@ -54,6 +54,11 @@ model-token ceiling, so trace supervision necessarily purchases fewer training
 examples when it costs more tokens. Both regimes are evaluated on final-answer
 accuracy and exact-trace accuracy.
 
+This confounds supervision density with example count. Exposure ratios measure
+the confound; they do not control it. Before attributing any effect to process
+supervision, add an example-matched outcome-only arm (same programs and count as
+the trace arm, fewer tokens) alongside the token-matched comparison.
+
 A full and smoke manifest are present. Before any full run:
 
 1. let CI validate the scaffold;

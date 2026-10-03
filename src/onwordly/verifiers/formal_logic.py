@@ -4,6 +4,7 @@ from onwordly.tasks.formal_logic import LogicTask
 
 
 def parse_logic_answer(response: str) -> str | None:
+    """Accept only true/false; case is normalised by design."""
     stripped = response.strip().lower()
     return stripped if stripped in {"true", "false"} else None
 

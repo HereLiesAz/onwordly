@@ -34,7 +34,7 @@ def test_symbolic_suite_aggregates(tmp_path) -> None:
         max_new_tokens=8,
         lengths=(4,),
         out_of_range_lengths=(6,),
-        operations=("reverse",),
+        operations=("reverse", "rotate_left"),
         alphabet=("A", "B", "C"),
         variants_per_failure=2,
         holdout_modulus=5,

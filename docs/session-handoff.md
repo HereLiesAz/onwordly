@@ -58,10 +58,17 @@ The runs previously described as the canonical live Kaggle jobs were not actuall
 
 Two earlier remote submissions to `azwashere/onwordly-experiment-001` did succeed: version 1 reached RUNNING after its 10:58 UTC submission, and version 2 reached RUNNING after its 11:08 UTC submission. The public Kaggle status interface does not expose the session IDs needed for supported API cancellation, so do not claim those remote Kaggle sessions themselves were canceled without separate confirmation.
 
-Fresh transparent restarts are queued:
+Run-plan history after revisions 9 (001 suite) and 10 (002 ablation):
 
-- Experiment 001 repeated-seed suite — target commit `d0401506fd75437851012c6b576fad447bc88b24`, tracker `36873051697`, run-plan revision 9.
-- Experiment 002 five-regime ablation — target commit `ae7f715605aa9fca05f60624ef1fcf636d44abd7`, tracker `36873056937`, run-plan revision 10.
+- revision 14 — Experiment 001 repeated-seed suite (`061e26e`, 2026-10-01);
+- revision 15 — Experiment 002 single ablation (`8df8b6d`, 2026-10-01), the current `.kaggle-run`;
+- Onwordly Actions were then disabled (`4d75572`, `bb3bbc3`) and workflow bindings re-centralized (`5791e7f`, `0414be8`, `db7c0d6`).
+
+No outcome for revisions 9, 10, 14 or 15 is recorded in this repository. None counts as a live or completed run until a confirmed Kaggle push and status are recorded here.
+
+Experiment 002 was launched before Experiment 001 produced the repeated-seed result its own gate requires. Treat any 002 output as a mechanics check, not evidence, until 001 is interpreted.
+
+In `single` mode the `seeds:` line is ignored; the manifest `training_seed` is used.
 
 The central runner now requires a positive Kaggle push confirmation, treats textual push errors as failures, fails on inaccessible/not-found status responses, limits repeated unknown states, records kernel URL/ref/target SHA/accelerator/submission time, uploads control metadata before polling, and emits timestamped state transitions.
 
@@ -82,13 +89,31 @@ Main now includes:
 - experiment-specific Kaggle manifest defaults and report CLIs for all prepared domains;
 - Experiment 007 exact program-state process supervision with a common prompt, outcome-only versus trace targets, exact final/trace verifiers, and full/smoke manifests.
 
-The newer development commits are still queued for centralized CI behind the long-running experiment workload. Do not describe them as CI-validated until the latest queued validation completes.
+None of this is CI-validated. The 2026-10-03 audit found the local suite red (7 failures: Experiment 006 dataset builders raised on every call; two stale tests). Those are fixed; the suite now passes locally (95 tests). No smoke or real-model run of Experiments 003–007 is recorded.
+
+## 2026-10-03 audit changes
+
+- Experiment 006: static builder used an undefined name; composition builder requested depth-1 compositions. Both fixed. Logic partition now hashes the formula alone, so held-out means an unseen formula (previously only an unseen assignment).
+- Integer and trace verifiers accept canonical ASCII decimals only (no `+`, leading zeros, `-0`, underscores, non-ASCII digits).
+- `parse_supervised_program_final` rejects arbitrary text before `FINAL=`; a `TRACE=` prefix must be well formed.
+- Symbolic and logic verifiers remain case-insensitive by design (documented in code).
+- Harness records `generation_seconds`, `verifier_seconds`, `generated_characters` separately; `training_core_seconds` is now the update step alone. It also records `unique_examples`, `repeated_examples` and `unused_token_budget` so static pool cycling and budget shortfall are visible. Arithmetic and symbolic suite aggregates report them.
+- Hugging Face adapter generates from the same `prompt + "\n"` format used in training (previously mismatched) and requests deterministic kernels when seeded.
+
+Open, not fixed:
+
+- `.github/workflows/ci.yml` and `.github/workflows/experiment.yml` are local implementations, contrary to the centralization rule; `.experiment-run` only feeds `experiment.yml`. Remove them through the central controller.
+- Training dependencies (`torch`, `transformers`) are unpinned; record exact versions with every real-model result.
+- Manifest hyperparameters (token budget, learning rate, holdout modulus, evaluation sizes) have no recorded provenance. A shared 100k-token budget yields different example counts per domain; compare domains on examples and tokens, not budget alone.
+- Experiment 007 confounds supervision density with example count (trace targets cost more tokens). A token-matched outcome-only arm cannot separate them; an example-matched outcome-only arm is needed before attributing an effect to process supervision.
+- Checkpoint evaluation reuses the first `checkpoint_evaluation_size` items of the final held-out set; tokens-to-threshold is not independent of final accuracy.
+- Experiments 001 and 002 share an identical manifest, so their static baselines are the same condition, not independent replications.
 
 ## Exact next actions
 
-1. Let transparent Experiment 001 run 9 and Experiment 002 run 10 dispatch through the fixed Kaggle runner; verify explicit successful-push output before calling either live.
-2. If Kaggle still reports the two-GPU-session ceiling, preserve the fail-fast evidence and wait for the older Kaggle sessions to finish or stop them through Kaggle once their session IDs are available.
-3. Inspect and fix the newest centralized CI result as soon as it executes.
+1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.
+2. Remove the local `ci.yml` / `experiment.yml` implementations through the central controller and get a central `ci-validation` run green.
+3. Re-run Experiment 001 after the verifier and prompt-format fixes; results produced before 2026-10-03 used a looser verifier and a train/eval prompt mismatch.
 4. Smoke-test Experiments 003–006 before any full new-domain spend; verify Experiment 006's withheld-composition dataset and aggregate/report path in that smoke.
 5. CI-validate and smoke-test Experiment 007's common-prompt outcome-vs-trace ablation; inspect its exact token-utilization, examples-per-budget, first-pass cost, and exposure ratios before enabling repeated seeds.
 6. Only after cross-domain results exist decide whether search, distillation, or multi-agent language games deserve the next compute budget.

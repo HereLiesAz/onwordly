@@ -8,6 +8,7 @@ class SymbolicAnswerTask(Protocol):
 
 
 def parse_symbolic_answer(text: str) -> str | None:
+    """Accept ASCII letters only; case is normalised by design (targets are uppercase)."""
     stripped = text.strip()
     if not stripped:
         return None

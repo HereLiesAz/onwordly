@@ -58,6 +58,9 @@ def aggregate_suite(run_results: list[dict[str, object]]) -> dict[str, object]:
             "0.95": [],
         }
 
+        generation_seconds: list[float] = []
+        unused_budget: list[float] = []
+        repeated: list[float] = []
         for run in run_results:
             regime = run["regimes"][regime_name]
             evaluation = regime["evaluation"]
@@ -68,6 +71,9 @@ def aggregate_suite(run_results: list[dict[str, object]]) -> dict[str, object]:
             training_tokens.append(float(training["training_tokens"]))
             examples_trained.append(float(training["examples_trained"]))
             training_seconds.append(float(training["training_core_seconds"]))
+            generation_seconds.append(float(training.get("generation_seconds", 0.0)))
+            unused_budget.append(float(training["token_budget"] - training["training_tokens"]))
+            repeated.append(float(training.get("repeated_examples", 0)))
 
             overhead = regime["measurement_overhead"]
             total_generation_calls.append(
@@ -106,6 +112,9 @@ def aggregate_suite(run_results: list[dict[str, object]]) -> dict[str, object]:
             "training_tokens": _number_summary(training_tokens),
             "examples_trained": _number_summary(examples_trained),
             "training_core_seconds": _number_summary(training_seconds),
+            "generation_seconds": _number_summary(generation_seconds),
+            "unused_token_budget": _number_summary(unused_budget),
+            "repeated_examples": _number_summary(repeated),
             "regime_wall_seconds": (
                 _number_summary(regime_wall_seconds) if regime_wall_seconds else None
             ),

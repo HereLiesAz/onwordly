@@ -14,7 +14,7 @@ The first controlled experiment compares frozen static SFT, adaptive curriculum 
 
 It includes deterministic train/eval partitioning, periodic checkpoints, a prompt-transfer-only split, a joint heldout+prompt split, out-of-range digit tests, duplicate-rate diagnostics, synchronized resource accounting, peak-memory capture, and repeated-seed aggregation.
 
-The Kaggle execution path now distinguishes a confirmed Kaggle submission from a GitHub-side watcher. Experiment 001 run 9 and Experiment 002 run 10 are queued for fresh dispatch; neither is considered live until Kaggle confirms a successful kernel push and reports QUEUED or RUNNING.
+The Kaggle execution path distinguishes a confirmed Kaggle submission from a GitHub-side watcher. Run-plan revisions 14 (001 suite) and 15 (002 ablation) were launched on 2026-10-01; no outcome is recorded. See `docs/session-handoff.md`.
 
 See [experiments/001-arithmetic-curriculum](experiments/001-arithmetic-curriculum/README.md).
 
@@ -30,7 +30,7 @@ It separates:
 4. failure-neighborhood examples without adaptive bucket weighting;
 5. failure-neighborhood examples combined with adaptive weighting.
 
-Experiment 002 is deliberately **gated** until Experiment 001 has a sane repeated-seed result worth explaining.
+Experiment 002 is **gated** for interpretation until Experiment 001 has a sane repeated-seed result. A single 002 run (revision 15) was launched ahead of that gate; treat its output as a mechanics check only.
 
 See [experiments/002-adaptive-ablation](experiments/002-adaptive-ablation/README.md).
 
@@ -39,6 +39,8 @@ See [experiments/002-adaptive-ablation](experiments/002-adaptive-ablation/README
 The next exact-verification domain now has deterministic generation, exact
 verification, stable train/eval partitioning, adaptive/error-focused curricula,
 and an equal-token real-model runner. No empirical result is claimed yet.
+No smoke or real-model run of Experiments 003–007 is recorded; "Kaggle support"
+below means a prepared path, not a validated one.
 
 See [experiments/003-symbolic-transformations](experiments/003-symbolic-transformations/README.md).
 

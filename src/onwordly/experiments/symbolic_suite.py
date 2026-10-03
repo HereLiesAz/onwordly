@@ -41,6 +41,9 @@ def aggregate_symbolic_suite(runs: list[dict[str, object]]) -> dict[str, object]
         core_seconds: list[float] = []
         wall_seconds: list[float] = []
         peak_memory: list[float] = []
+        generation_seconds: list[float] = []
+        unused_budget: list[float] = []
+        repeated: list[float] = []
         for run in runs:
             regime = run["regimes"][regime_name]
             for split in split_values:
@@ -51,6 +54,9 @@ def aggregate_symbolic_suite(runs: list[dict[str, object]]) -> dict[str, object]
             train_tokens.append(float(training["training_tokens"]))
             examples.append(float(training["examples_trained"]))
             core_seconds.append(float(training["training_core_seconds"]))
+            generation_seconds.append(float(training.get("generation_seconds", 0.0)))
+            unused_budget.append(float(training["token_budget"] - training["training_tokens"]))
+            repeated.append(float(training.get("repeated_examples", 0)))
             overhead = regime["measurement_overhead"]
             wall_seconds.append(float(overhead["regime_wall_seconds"]))
             peak = regime["model"].get("peak_memory_bytes")
@@ -65,6 +71,9 @@ def aggregate_symbolic_suite(runs: list[dict[str, object]]) -> dict[str, object]
             "training_tokens": _summary(train_tokens),
             "examples_trained": _summary(examples),
             "training_core_seconds": _summary(core_seconds),
+            "generation_seconds": _summary(generation_seconds),
+            "unused_token_budget": _summary(unused_budget),
+            "repeated_examples": _summary(repeated),
             "regime_wall_seconds": _summary(wall_seconds),
             "peak_memory_bytes": _summary(peak_memory) if peak_memory else None,
         }

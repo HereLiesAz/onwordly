@@ -63,6 +63,7 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
     experiment = values.get("experiment", "001")
     mode = values.get("mode", "single")
     manifest = values.get("manifest", DEFAULT_MANIFESTS.get(experiment, ""))
+    # Seeds drive suite mode only; single mode uses the manifest training_seed.
     seeds_text = values.get("seeds", "3303,4404,5505")
     seeds = tuple(int(value.strip()) for value in seeds_text.split(",") if value.strip())
 
