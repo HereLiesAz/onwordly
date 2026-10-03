@@ -27,6 +27,10 @@ class SymbolicExperimentManifest:
     alphabet: tuple[str, ...]
     variants_per_failure: int
     holdout_modulus: int
+    # Tokens of shared answer-format warm-up, taken from the end of the static
+    # training pool and trained identically before every regime; counted in
+    # token_budget. 0 disables it.
+    format_warmup_tokens: int = 0
 
     @classmethod
     def from_json(cls, path: str | Path) -> "SymbolicExperimentManifest":
@@ -38,6 +42,8 @@ class SymbolicExperimentManifest:
         return manifest
 
     def validate(self) -> None:
+        if not 0 <= self.format_warmup_tokens < self.token_budget:
+            raise ValueError("format_warmup_tokens must be in [0, token_budget)")
         if self.token_budget < 1:
             raise ValueError("token_budget must be positive")
         if (

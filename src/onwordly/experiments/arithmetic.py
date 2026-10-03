@@ -287,6 +287,10 @@ def run_experiment(
             adapter=adapter,
             source=_source_for_regime(regime_name, manifest, static_tasks),
             token_budget=manifest.token_budget,
+            # Warm-up comes from the pool's tail, which the static regime
+            # reaches last, so it rarely duplicates static training items.
+            warmup_tasks=tuple(reversed(static_tasks)),
+            warmup_token_budget=manifest.format_warmup_tokens,
             seed=manifest.training_seed,
             checkpoint_interval_tokens=manifest.checkpoint_interval_tokens,
             checkpoint_callback=checkpoint_callback,

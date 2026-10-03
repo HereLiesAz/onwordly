@@ -133,6 +133,10 @@ def run_process_supervision_experiment(
     create_adapter: Callable[[], ModelAdapter] | None = None,
 ) -> dict[str, object]:
     manifest.validate()
+    if manifest.format_warmup_tokens:
+        # Each arm's output format is the variable under test; a shared warm-up
+        # would teach one arm's format to both.
+        raise ValueError("Experiment 007 does not support format_warmup_tokens")
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
 
