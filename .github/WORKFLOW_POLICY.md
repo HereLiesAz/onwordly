@@ -14,5 +14,6 @@ Automation for HereLiesAz repositories is centralized in `HereLiesAz/workflows`.
   - what operation the workflow needs it for.
 - A missing required secret must fail explicitly with its name and purpose.
 - Generated target repositories should contain only controller-managed proxies, not copied central implementations.
+- Onwordly remote compute is asynchronous. GitHub Actions may validate, package, and submit work, but must not stay alive for Kaggle or any other model-training/build duration. Terminal success/failure must be reported by the remote job through the central Cloudflare Worker callback; no polling watcher is allowed.
 
 See `.github/workflow-request.yml` for the current menu and request shape.

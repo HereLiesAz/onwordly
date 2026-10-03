@@ -18,6 +18,7 @@ Read these before changing the research design:
 - Prefer exact/programmatic verification over neural judges whenever possible.
 - Add an ablation before attributing an effect to a new component.
 - Keep repository Actions centralized through `HereLiesAz/workflows`; do not add one-off local workflow implementations.
+- Remote model training/builds must be fire-and-forget from GitHub Actions: dispatch through the central Cloudflare Worker, never poll the external platform from a runner, and let the remote run report its own terminal state back through the Worker callback.
 - Update `docs/session-handoff.md` whenever the current state or next actions change.
 
 ## Current program
