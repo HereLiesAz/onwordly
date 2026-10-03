@@ -121,6 +121,10 @@ CPU-only, no GPU spend. Scripts live in `scripts/`.
   - 007 confound quantified: trace supervision buys 1041 examples versus 1225 for outcome-only (−15%).
   - 006 answers are ~52–56% `false`; a constant-`false` model scores about 0.55, so judge logic accuracy against that floor.
 - **Untrained baseline** (`scripts/baseline_eval.py`, report in `docs/baseline.md`): Qwen2.5-0.5B, greedy, 50 sampled rows per split.
+  - Accuracy is 0–2% on every split in every domain. The base model does not follow the "return only the answer" format: it explains, restates the program, or emits multiple-choice text, and the exact parsers reject it (e.g. `The answer is 2.` for answer `2`).
+  - Consequence: early in training, pre-update correctness is ~0 for every regime, so adaptive and error-focused sources start with no competence signal; error-focused regimes will spawn variants after nearly every task. Early gains will mostly be format acquisition, shared by all regimes, not skill.
+  - Before interpreting curriculum effects, consider either a short shared format warm-up (identical for all regimes, counted in the budget) or a diagnostic lenient score (answer present anywhere in the response; reported only, never used for training) to separate format from capability.
+- **LoRA on the real model**: the static regime of a 002 smoke ran on CPU with Qwen2.5-0.5B + the `manifest-lora.json` adapter config: 8.8M trainable of 503M parameters (1.7%), 17 examples, mean loss 1.39. The remaining regimes were not run (CPU time); they share the same adapter path.
 
 ## LoRA arm (prepared, not run)
 
