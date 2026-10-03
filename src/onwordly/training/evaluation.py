@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass
 from typing import Sequence
 
@@ -15,9 +16,23 @@ class EvaluationResult:
     accuracy: float
     by_bucket: dict[str, dict[str, float | int]]
     by_prompt_style: dict[str, dict[str, float | int]]
+    # Diagnostic only, never used for training: the expected answer appears as a
+    # standalone token anywhere in the response. An upper bound on capability
+    # that ignores output format; restated prompts can inflate it.
+    lenient_correct: int = 0
+    lenient_accuracy: float = 0.0
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+
+def lenient_match(response: str, answer: object) -> bool:
+    """Answer present as a standalone token, ignoring case and surrounding text."""
+    expected = str(answer)
+    if not expected:
+        return False
+    pattern = rf"(?<![A-Za-z0-9-]){re.escape(expected)}(?![A-Za-z0-9])"
+    return re.search(pattern, response, flags=re.IGNORECASE) is not None
 
 
 def evaluate_arithmetic(
@@ -28,6 +43,7 @@ def evaluate_arithmetic(
         raise ValueError("evaluation set cannot be empty")
 
     correct = 0
+    lenient = 0
     buckets: dict[str, list[int]] = {}
     styles: dict[str, list[int]] = {}
 
@@ -35,6 +51,7 @@ def evaluate_arithmetic(
         response = adapter.generate(task.prompt)
         is_correct = verify_arithmetic_answer(task, response)
         correct += int(is_correct)
+        lenient += int(lenient_match(response, task.answer))
 
         bucket_key = f"{task.operation}:{task.digits}"
         bucket = buckets.setdefault(bucket_key, [0, 0])
@@ -59,6 +76,8 @@ def evaluate_arithmetic(
         examples=len(tasks),
         correct=correct,
         accuracy=correct / len(tasks),
+        lenient_correct=lenient,
+        lenient_accuracy=lenient / len(tasks),
         by_bucket=summarize(buckets),
         by_prompt_style=summarize(styles),
     )

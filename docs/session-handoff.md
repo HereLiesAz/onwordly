@@ -134,6 +134,12 @@ CPU-only, no GPU spend. Scripts live in `scripts/`.
 
 `HuggingFaceCausalLMAdapter` accepts an optional `lora` config (via `peft`) and trains only adapter weights; arithmetic manifests accept a `lora` field. `experiments/002-adaptive-ablation/manifest-lora.json` differs from the full fine-tuning manifest only in `lora` and `learning_rate` (2e-4, an unpiloted PEFT default). Same five regimes, same budgets. See the 002 README. Gated with the rest of 002.
 
+## Format controls (prepared, not run)
+
+- **Lenient diagnostic score.** Every evaluation now also reports `lenient_correct` / `lenient_accuracy`: the expected answer appears as a standalone token anywhere in the response. Reported only; training and adaptive sources still see exact verification alone. It is an upper bound on capability that ignores format, and restated prompts can inflate it. `scripts/baseline_eval.py` reports both.
+- **Shared format warm-up.** Manifests for 001–006 accept `format_warmup_tokens` (default 0 = off). Before each regime the harness trains, in order, on the tail of the static training pool until that many tokens are used, with no generation, verification or source observation. Warm-up tokens count toward `token_budget`, so totals stay matched, and every regime gets the identical warm-up. Results record `warmup_tokens` and `warmup_examples`. Experiment 007 rejects it, since each arm's output format is the variable under test.
+- No manifest enables warm-up yet. Choose a size (for example 5–10% of the budget) from a pilot that shows exact accuracy rising on a held-out sample, and record that pilot as its provenance.
+
 ## Exact next actions
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.

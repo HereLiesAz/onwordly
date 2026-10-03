@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 from random import Random
 from statistics import fmean
 from time import perf_counter
-from typing import Callable
+from typing import Callable, Sequence
 
 from onwordly.models.base import ModelAdapter
 from onwordly.tasks.base import TrainableTask
@@ -54,6 +54,10 @@ class TrainingRunResult:
     verifier_seconds: float = 0.0
     generated_characters: int = 0
     unique_examples: int = 0
+    # Shared format warm-up, trained before the regime's source and counted in
+    # training_tokens; identical for every regime.
+    warmup_tokens: int = 0
+    warmup_examples: int = 0
     bucket_stats: dict[str, dict[str, float | int]] = field(default_factory=dict)
     checkpoints: tuple[dict[str, object], ...] = ()
 
@@ -103,12 +107,18 @@ def run_equal_token_training(
     verifier: Verifier = verify_arithmetic_answer,
     checkpoint_interval_tokens: int | None = None,
     checkpoint_callback: CheckpointCallback | None = None,
+    warmup_tasks: Sequence[TrainableTask] = (),
+    warmup_token_budget: int = 0,
 ) -> TrainingRunResult:
     """Train without ever exceeding the requested model-token budget.
 
     Every regime performs the same pre-update generation and verification step.
     Adaptive sources may use that observation to choose future tasks. Optional
     checkpoint evaluation is read-only: its results are never fed to the source.
+    Optional format warm-up: ``warmup_tasks`` are trained in order, without
+    generation, verification or source observation, until the next one would
+    exceed ``warmup_token_budget``. Those tokens count toward ``token_budget``,
+    so every regime keeps the same total. Pass the same tasks to every regime.
     Timing is split: generation_seconds, verifier_seconds and training_core_seconds
     (the update step alone) are recorded separately.
     """
@@ -144,6 +154,28 @@ def run_equal_token_training(
                 **baseline,
             }
         )
+
+    if warmup_token_budget < 0 or warmup_token_budget > token_budget:
+        raise ValueError("warmup_token_budget must be between 0 and token_budget")
+    if warmup_token_budget and not warmup_tasks:
+        raise ValueError("warmup_token_budget requires warmup_tasks")
+    warmup_tokens = 0
+    warmup_examples = 0
+    for warmup_task in warmup_tasks:
+        planned = adapter.count_training_tokens(warmup_task.prompt, warmup_task.target_text)
+        if warmup_tokens + planned > warmup_token_budget:
+            break
+        _synchronize_adapter(adapter)
+        update_started = perf_counter()
+        step = adapter.train_example(warmup_task.prompt, warmup_task.target_text)
+        _synchronize_adapter(adapter)
+        training_core_seconds += perf_counter() - update_started
+        warmup_tokens += step.tokens
+        warmup_examples += 1
+        losses.append(step.loss)
+        seen_examples.add((warmup_task.prompt, warmup_task.target_text))
+    training_tokens = warmup_tokens
+    examples_trained = warmup_examples
 
     while True:
         task = source.next_task(rng)
@@ -242,6 +274,8 @@ def run_equal_token_training(
         verifier_seconds=verifier_seconds,
         generated_characters=generated_characters,
         unique_examples=len(seen_examples),
+        warmup_tokens=warmup_tokens,
+        warmup_examples=warmup_examples,
         bucket_stats=bucket_payload,
         checkpoints=tuple(checkpoints),
     )
