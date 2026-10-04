@@ -184,3 +184,15 @@ def test_batch_units_cover_every_seed_and_regime(tmp_path: Path) -> None:
     assert (tmp_path / "001-arithmetic-curriculum-suite" / "seed-2" / "manifest.json").exists()
     units, _ = _job_units("002", (1,), tmp_path)
     assert len(units) == 5
+
+
+def test_experiment_008_rejects_manifest_without_corrective_evaluation(tmp_path: Path) -> None:
+    plan_path = tmp_path / ".kaggle-run"
+    plan_path.write_text(
+        "experiment: 008\nmode: single\nmanifest: experiments/001-arithmetic-curriculum/manifest.json\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="corrective_evaluation_size"):
+        load_run_plan(plan_path)
+    plan_path.write_text("experiment: 008\nmode: single\n", encoding="utf-8")
+    assert load_run_plan(plan_path).manifest.endswith("008-corrective-language-game/manifest.json")

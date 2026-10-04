@@ -117,6 +117,15 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
         raise ValueError("at least one seed is required")
     if experiment == "002" and mode == "suite":
         raise ValueError("Experiment 002 suite is gated until Experiment 001 is interpreted")
+    if experiment == "008" and manifest:
+        # A 001 manifest trains the same regimes but silently skips the
+        # corrective evaluation, which is the point of 008.
+        payload = json.loads(Path(manifest).read_text(encoding="utf-8"))
+        if not payload.get("corrective_evaluation_size"):
+            raise ValueError(
+                f"Experiment 008 needs a manifest with corrective_evaluation_size > 0; "
+                f"{manifest} has none (use {DEFAULT_MANIFESTS['008']})"
+            )
     if experiment == "008" and mode == "suite":
         raise ValueError("Experiment 008 suite is gated until a single run is inspected")
     if experiment == "007" and mode == "suite":
