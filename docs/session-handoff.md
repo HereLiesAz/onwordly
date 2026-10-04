@@ -153,6 +153,13 @@ See `docs/baseline-gpu.md`. Summary: exact accuracy is ~0 in every domain for bo
 
 Decision input: switching to instruct + chat buys a small exact-score head start on arithmetic only, at ~3× prompt tokens per example (13 → 42 for a short arithmetic prompt), so roughly a third as many examples per budget. The format warm-up on the base model with raw prompts remains the cheaper way to get a competence signal. If instruct is tried, it needs its own arm and its own baseline, not a silent swap.
 
+## Using the baseline (prepared 2026-10-04)
+
+- `experiments/001-arithmetic-curriculum/manifest-warmup.json` = `manifest.json` + `format_warmup_tokens: 5000` (5% of budget; unpiloted choice, record the outcome as its provenance). A matching `smoke-manifest-warmup.json` uses 100 tokens.
+- Warm-up vs no warm-up is itself the ablation: run both manifests with identical seeds before attributing any change to the warm-up.
+- Every arithmetic `RESULTS.md` now has an "Against the untrained baseline" table: warm-up tokens, step-0 (untrained) exact and lenient, final held-out exact and lenient.
+- `notebooks/experiment_colab.ipynb` runs smoke first, then both full manifests, on a Colab T4. Kaggle: point `.kaggle-run` at either manifest.
+
 ## Exact next actions
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.
