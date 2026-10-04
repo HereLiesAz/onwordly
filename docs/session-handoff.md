@@ -163,8 +163,14 @@ Decision input: switching to instruct + chat buys a small exact-score head start
 ## Kaggle run 16 (Experiment 001, prepared)
 
 - `.kaggle-run` revision 16: Experiment 001, single, full manifest, no warm-up. Merging this to main dispatches it through the central Kaggle workflow.
-- Both GPUs: Kaggle's `NvidiaTeslaT4` machine is two T4s. `onwordly-kaggle` now runs 001/002 regimes in parallel, one process per GPU (`onwordly.experiments.multi_gpu`), then assembles the summary from the regime files. Three regimes on two GPUs ≈ two regime-lengths (~2–2.5 h instead of ~3–3.5 h). Falls back to one process when fewer than two GPUs are visible. Suite mode and 003–007 still use one GPU.
+- Both GPUs: Kaggle's `NvidiaTeslaT4` machine is two T4s. `onwordly-kaggle` now runs 001/002 regimes in parallel, one process per GPU (`onwordly.experiments.multi_gpu`), then assembles the summary from the regime files. Three regimes on two GPUs ≈ two regime-lengths (~2–2.5 h instead of ~3–3.5 h). Falls back to one process when fewer than two GPUs are visible. Suite mode uses the batch queue below; 003–007 still use one GPU.
 - Results: everything under `/kaggle/working/results` is the kernel's saved output on Kaggle, plus a `<experiment>.tar.gz` archive of it. The central finalizer downloads that output into a GitHub Actions artifact (30-day retention). Durable GitHub storage (a release asset) needs a `release_tag` and `release_assets_glob: kaggle-output/results/*.tar.gz` on the Onwordly Kaggle profile in `HereLiesAz/workflows` (`scripts/semantic_catalog.py`); that profile currently has none, and a fixed tag would collide on the next run because release assets are immutable.
+
+## Experiment 001 first real result (2026-10-04)
+
+Kaggle run 16, one seed: held-out exact static 80.1%, adaptive 80.4%, error-focused 75.1% (from 0%). Static ≈ adaptive; error-focused is worse on every split and slow to 70%. Single seed: no training-advantage claim. Details in `experiments/001-arithmetic-curriculum/RESULTS.md`.
+
+Next compute, in order: (1) Experiment 001 suite over seeds 3303, 4404, 5505; (2) Experiment 002 single run to locate the error-focused penalty (uniform vs adaptive sampling with failure variants).
 
 ## Batch runs across both GPUs (2026-10-04)
 
@@ -174,7 +180,7 @@ Decision input: switching to instruct + chat buys a small exact-score head start
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.
 2. Remove the local `ci.yml` / `experiment.yml` implementations through the central controller and get a central `ci-validation` run green.
-3. Re-run Experiment 001 after the verifier and prompt-format fixes; results produced before 2026-10-03 used a looser verifier and a train/eval prompt mismatch.
+3. Run the batch (`jobs: 001-suite,002`, seeds 3303, 4404, 5505) on Kaggle T4 x2 and record the aggregate; Experiment 001 run 16 (post-fix code, one seed) is the first valid result.
 4. Smoke-test Experiments 003–006 before any full new-domain spend; verify Experiment 006's withheld-composition dataset and aggregate/report path in that smoke.
 5. CI-validate and smoke-test Experiment 007's common-prompt outcome-vs-trace ablation; inspect its exact token-utilization, examples-per-budget, first-pass cost, and exposure ratios before enabling repeated seeds.
 6. Only after cross-domain results exist decide whether search, distillation, or multi-agent language games deserve the next compute budget.
