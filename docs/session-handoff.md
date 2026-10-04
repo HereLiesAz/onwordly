@@ -147,6 +147,12 @@ CPU-only, no GPU spend. Scripts live in `scripts/`.
 
 Untrained baselines now run as a Kaggle plan (`experiment: baseline`, keys `models`, `chat_template` = no/yes/both, `per_split`) or via `notebooks/baseline_colab.ipynb`. Audit and baseline code moved into `onwordly.diagnostics` (`onwordly-audit`, `onwordly-baseline`); `scripts/` keeps thin wrappers. Next baseline to run: base vs `Qwen/Qwen2.5-0.5B-Instruct`, raw prompts vs chat template, 200 rows per split. Qwen's default chat template turns a 13-token arithmetic prompt into 42 tokens (it adds a system message), so chat-format training would buy far fewer examples per budget.
 
+## GPU baseline result (2026-10-04)
+
+See `docs/baseline-gpu.md`. Summary: exact accuracy is ~0 in every domain for both Qwen2.5-0.5B and -Instruct, raw or chat-templated, except instruct + chat on non-canonical arithmetic prompts (0.21–0.23). Base + chat template degenerates; instruct without its template is worse than base. Symbolic, string and program tasks are a genuine skill gap under every variant.
+
+Decision input: switching to instruct + chat buys a small exact-score head start on arithmetic only, at ~3× prompt tokens per example (13 → 42 for a short arithmetic prompt), so roughly a third as many examples per budget. The format warm-up on the base model with raw prompts remains the cheaper way to get a competence signal. If instruct is tried, it needs its own arm and its own baseline, not a silent swap.
+
 ## Exact next actions
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.
