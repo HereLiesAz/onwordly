@@ -155,3 +155,32 @@ def test_baseline_plan_rejects_unknown_keys(tmp_path: Path) -> None:
     plan_path.write_text("experiment: baseline\nchat_template: maybe\n", encoding="utf-8")
     with pytest.raises(ValueError):
         load_run_plan(plan_path)
+
+
+def test_batch_plan_parses_jobs(tmp_path: Path) -> None:
+    plan_path = tmp_path / ".kaggle-run"
+    plan_path.write_text(
+        "experiment: batch\njobs: 001-suite, 002\nseeds: 3303,4404,5505\n", encoding="utf-8"
+    )
+    plan = load_run_plan(plan_path)
+    assert plan.mode == "batch"
+    assert dict(plan.options)["jobs"] == "001-suite,002"
+    assert plan.seeds == (3303, 4404, 5505)
+
+
+def test_batch_plan_rejects_unknown_job(tmp_path: Path) -> None:
+    plan_path = tmp_path / ".kaggle-run"
+    plan_path.write_text("experiment: batch\njobs: 003\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="batch jobs"):
+        load_run_plan(plan_path)
+
+
+def test_batch_units_cover_every_seed_and_regime(tmp_path: Path) -> None:
+    from onwordly.experiments.kaggle import _job_units
+
+    units, _ = _job_units("001-suite", (1, 2), tmp_path)
+    assert len(units) == 6
+    assert {unit[2] for unit in units} == {"static", "adaptive", "error-focused"}
+    assert (tmp_path / "001-arithmetic-curriculum-suite" / "seed-2" / "manifest.json").exists()
+    units, _ = _job_units("002", (1,), tmp_path)
+    assert len(units) == 5

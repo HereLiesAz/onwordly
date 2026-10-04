@@ -142,6 +142,34 @@ def render_single_run(summary: dict[str, Any]) -> str:
             + " |"
         )
 
+    corrective_rows = [
+        (name, summary["regimes"][name].get("corrective_evaluation"), summary["regimes"][name].get("corrective_tasks_queued"))
+        for name in _regime_order(summary)
+    ]
+    if any(row[1] for row in corrective_rows):
+        lines.extend(
+            [
+                "",
+                "## Corrective language game (Experiment 008)",
+                "",
+                "Correction: shown a synthetic wrong answer. Confirmation: shown the right answer.",
+                "Self-correction: answer, then see your own answer in a corrective prompt.",
+                "",
+                "| Regime | Correction | Confirmation | Self-correction pass 1 | Pass 2 | Fixed | Broken | Corrective / confirm tasks trained |",
+                "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for name, row, queued in corrective_rows:
+            if not row:
+                continue
+            self_correction = row["self_correction"]
+            queued_text = "—" if not queued else f"{queued['correct']} / {queued['confirm']}"
+            lines.append(
+                f"| {name} | {_pct(row['correction_accuracy'])} | {_pct(row['confirmation_accuracy'])} | "
+                f"{_pct(self_correction['first_pass_accuracy'])} | {_pct(self_correction['second_pass_accuracy'])} | "
+                f"{self_correction['fixed']} | {self_correction['broken']} | {queued_text} |"
+            )
+
     lines.extend(
         [
             "",

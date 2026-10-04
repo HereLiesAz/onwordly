@@ -12,6 +12,7 @@ fixed, and what evidence it is allowed to support.
 | 005 | Stateful program execution | static / adaptive / error-focused | held-out programs; longer programs; withheld adjacent instruction transition | runner, smoke/full manifests, suite and Kaggle path prepared |
 | 006 | Formal logic | static / adaptive / error-focused | held-out formulas (partitioned by formula); deeper formulas; withheld parent→child operator composition | runner, smoke/full manifests, suite and Kaggle path prepared; dataset builders fixed 2026-10-03 |
 | 007 | Exact process supervision | outcome-only / trace-supervised | final answer; exact machine-state trace | smoke/full ablation scaffold prepared; no real-model run; example-count confound unresolved |
+| 008 | Corrective arithmetic language game | static / corrective-own / corrective-synthetic / error-focused | 001 splits; correction; confirmation; two-pass self-correction | prepared; CPU-tested; no real-model run |
 
 ## Cross-experiment invariants
 

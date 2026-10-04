@@ -10,6 +10,7 @@ The following are **not claimed as Onwordly inventions**:
 | --- | --- |
 | Active learning | Select informative examples rather than sampling uniformly. |
 | Hard-example mining | Concentrate training on examples the model currently fails. |
+| Self-correction / learning from mistakes | Train a model to revise a shown or self-generated answer (self-refinement, RL-based self-correction). Experiment 008 applies it under exact verification; not an Onwordly invention. |
 | Curriculum learning | Change task difficulty or distribution over training. |
 | Counterexample-guided refinement | Use failures/counterexamples to improve a learner. |
 | Self-play | Generate learning pressure through interaction among agents or policies. |

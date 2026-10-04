@@ -31,6 +31,10 @@ class ArithmeticExperimentManifest:
     # training pool and trained identically before every regime; counted in
     # token_budget. 0 disables it.
     format_warmup_tokens: int = 0
+    # Experiment 008: held-out corrective evaluation size (0 = off) and the
+    # probability of queuing a confirm task after a correct attempt.
+    corrective_evaluation_size: int = 0
+    confirm_probability: float = 0.25
     # Optional LoRA config (r, alpha, dropout, target_modules). None = full fine-tuning.
     lora: dict[str, object] | None = None
 
@@ -50,6 +54,10 @@ class ArithmeticExperimentManifest:
         return manifest
 
     def validate(self) -> None:
+        if not 0 <= self.corrective_evaluation_size <= self.evaluation_size:
+            raise ValueError("corrective_evaluation_size must be in [0, evaluation_size]")
+        if not 0.0 <= self.confirm_probability <= 1.0:
+            raise ValueError("confirm_probability must be in [0, 1]")
         if not 0 <= self.format_warmup_tokens < self.token_budget:
             raise ValueError("format_warmup_tokens must be in [0, token_budget)")
         if self.token_budget < 1:
