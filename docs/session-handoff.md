@@ -166,6 +166,10 @@ Decision input: switching to instruct + chat buys a small exact-score head start
 - Both GPUs: Kaggle's `NvidiaTeslaT4` machine is two T4s. `onwordly-kaggle` now runs 001/002 regimes in parallel, one process per GPU (`onwordly.experiments.multi_gpu`), then assembles the summary from the regime files. Three regimes on two GPUs ≈ two regime-lengths (~2–2.5 h instead of ~3–3.5 h). Falls back to one process when fewer than two GPUs are visible. Suite mode and 003–007 still use one GPU.
 - Results: everything under `/kaggle/working/results` is the kernel's saved output on Kaggle, plus a `<experiment>.tar.gz` archive of it. The central finalizer downloads that output into a GitHub Actions artifact (30-day retention). Durable GitHub storage (a release asset) needs a `release_tag` and `release_assets_glob: kaggle-output/results/*.tar.gz` on the Onwordly Kaggle profile in `HereLiesAz/workflows` (`scripts/semantic_catalog.py`); that profile currently has none, and a fixed tag would collide on the next run because release assets are immutable.
 
+## Batch runs across both GPUs (2026-10-04)
+
+`.kaggle-run` (or the Kaggle notebook) accepts `experiment: batch` with `jobs:` drawn from `001`, `001-suite`, `002` and `seeds:`. Every regime of every job becomes one unit; each free GPU takes the next unit (`onwordly.experiments.multi_gpu.run_units`), then each job's summary/aggregate and `RESULTS.md` are assembled from the regime files. `experiment: 001` with `mode: suite` now uses the same queue. `notebooks/experiment_kaggle.ipynb` defaults to `jobs: 001-suite,002` with seeds 3303, 4404, 5505: 14 regime runs, roughly 6 hours on T4 x2 (one regime ≈ 48 min). The central workflow's `kaggle_timeout_seconds` is 21600 (6 h), so run this batch from the notebook, or split it, rather than through `.kaggle-run`.
+
 ## Exact next actions
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.

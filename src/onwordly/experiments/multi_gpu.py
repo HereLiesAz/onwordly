@@ -38,6 +38,40 @@ def assign_regimes(regimes: Sequence[str], devices: int) -> list[list[str]]:
     return [bucket for bucket in buckets if bucket]
 
 
+def run_units(units: Sequence[tuple[str, str, str]], devices: int) -> None:
+    """Run (manifest_path, output_dir, regime) units on a GPU queue.
+
+    Each free GPU takes the next unit, so GPUs stay busy across experiments of
+    different lengths. Units already finished on disk are skipped by
+    ``run_experiment``'s resume check inside the worker.
+    """
+    import time
+
+    pending = list(units)
+    running: dict[int, tuple[tuple[str, str, str], subprocess.Popen]] = {}
+    failed: list[tuple[str, str, str]] = []
+    while pending or running:
+        for device in range(devices):
+            if device not in running and pending:
+                unit = pending.pop(0)
+                manifest_path, output_dir, regime = unit
+                env = {**os.environ, "CUDA_VISIBLE_DEVICES": str(device)}
+                command = [
+                    sys.executable, "-m", "onwordly.experiments.multi_gpu",
+                    "--manifest", manifest_path, "--output", output_dir, "--regimes", regime,
+                ]
+                print(f"GPU {device}: {regime} -> {output_dir}", flush=True)
+                running[device] = (unit, subprocess.Popen(command, env=env))
+        for device, (unit, process) in list(running.items()):
+            if process.poll() is not None:
+                if process.returncode != 0:
+                    failed.append(unit)
+                del running[device]
+        time.sleep(2)
+    if failed:
+        raise RuntimeError(f"regime workers failed: {failed}")
+
+
 def run_parallel(
     manifest_path: str | Path,
     *,

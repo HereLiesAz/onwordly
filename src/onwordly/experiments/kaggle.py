@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+import json
+from typing import Callable
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from onwordly.experiments.ablation import ABLATION_REGIMES
-from onwordly.experiments.arithmetic import run_experiment
+from onwordly.experiments.arithmetic import DEFAULT_REGIMES, run_experiment
 from onwordly.experiments.manifest import ArithmeticExperimentManifest
-from onwordly.experiments.multi_gpu import run_parallel
+from onwordly.experiments.multi_gpu import gpu_count, run_parallel, run_units
 from onwordly.experiments.suite import run_suite
 from onwordly.reporting.arithmetic import render_result
 from onwordly.experiments.symbolic import run_symbolic_experiment
@@ -70,6 +72,18 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
     seeds_text = values.get("seeds", "3303,4404,5505")
     seeds = tuple(int(value.strip()) for value in seeds_text.split(",") if value.strip())
 
+    if experiment == "batch":
+        jobs = tuple(job.strip() for job in values.get("jobs", "").split(",") if job.strip())
+        unknown = set(jobs) - set(BATCH_JOBS)
+        if not jobs or unknown:
+            raise ValueError(f"batch jobs must be chosen from {sorted(BATCH_JOBS)}; got {jobs}")
+        return KaggleRunPlan(
+            experiment=experiment,
+            mode="batch",
+            manifest="",
+            seeds=seeds,
+            options=(("jobs", ",".join(jobs)),),
+        )
     if experiment == "baseline":
         known = {"experiment", "mode", "backend", "accelerator", "run", "models", "chat_template", "per_split"}
         unknown = set(values) - known
@@ -130,8 +144,71 @@ def _execute_baseline(plan: KaggleRunPlan, root: Path) -> Path:
     return output
 
 
+# Arithmetic jobs a batch plan can queue across GPUs: name -> manifest.
+BATCH_JOBS: dict[str, str] = {
+    "001": DEFAULT_MANIFESTS["001"],
+    "001-suite": DEFAULT_MANIFESTS["001"],
+    "002": DEFAULT_MANIFESTS["002"],
+}
+
+
+def _job_units(job: str, seeds: tuple[int, ...], root: Path) -> tuple[list[tuple[str, str, str]], Callable[[], Path]]:
+    """Regime-level work units for one arithmetic job, and how to assemble its report."""
+    manifest_path = BATCH_JOBS[job]
+    manifest = ArithmeticExperimentManifest.from_json(manifest_path)
+    if job == "001-suite":
+        output = root / "001-arithmetic-curriculum-suite"
+        units = []
+        for seed in seeds:
+            seed_dir = output / f"seed-{seed}"
+            seed_dir.mkdir(parents=True, exist_ok=True)
+            seeded_path = seed_dir / "manifest.json"
+            seeded_path.write_text(
+                json.dumps(asdict(replace(manifest, training_seed=seed)), indent=2) + "\n",
+                encoding="utf-8",
+            )
+            units += [(str(seeded_path), str(seed_dir), regime) for regime in DEFAULT_REGIMES]
+
+        def finish() -> Path:
+            run_suite(manifest, seeds=seeds, output_dir=output)
+            (output / "RESULTS.md").write_text(render_result(output / "aggregate.json") + "\n", encoding="utf-8")
+            return output
+
+        return units, finish
+    regimes = ABLATION_REGIMES if job == "002" else DEFAULT_REGIMES
+    output = root / ("002-adaptive-ablation" if job == "002" else "001-arithmetic-curriculum")
+    units = [(manifest_path, str(output), regime) for regime in regimes]
+
+    def finish() -> Path:
+        run_experiment(manifest, output_dir=output, regimes=regimes)
+        (output / "RESULTS.md").write_text(render_result(output / "summary.json") + "\n", encoding="utf-8")
+        return output
+
+    return units, finish
+
+
+def _execute_batch(plan: KaggleRunPlan, root: Path) -> Path:
+    """Queue every regime of every job over all visible GPUs, then assemble reports."""
+    jobs = dict(plan.options)["jobs"].split(",")
+    planned = [_job_units(job, plan.seeds, root) for job in jobs]
+    # Interleave jobs so each GPU sees a mix rather than one job hogging both.
+    queues = [list(units) for units, _ in planned]
+    units: list[tuple[str, str, str]] = []
+    while any(queues):
+        for queue in queues:
+            if queue:
+                units.append(queue.pop(0))
+    run_units(units, devices=max(1, gpu_count()))
+    for _, finish in planned:
+        finish()
+    return root
+
+
 def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
     root = Path(output_root)
+
+    if plan.experiment == "batch":
+        return _execute_batch(plan, root)
 
     if plan.experiment == "baseline":
         return _execute_baseline(plan, root)
@@ -227,9 +304,10 @@ def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
         run_parallel(plan.manifest, output_dir=output)
         result_path = output / "summary.json"
     elif plan.experiment == "001" and plan.mode == "suite":
-        output = root / "001-arithmetic-curriculum-suite"
-        run_suite(manifest, seeds=plan.seeds, output_dir=output)
-        result_path = output / "aggregate.json"
+        units, finish = _job_units("001-suite", plan.seeds, root)
+        run_units(units, devices=max(1, gpu_count()))
+        output = finish()
+        return output
     elif plan.experiment == "002":
         output = root / "002-adaptive-ablation"
         run_parallel(plan.manifest, output_dir=output, regimes=ABLATION_REGIMES)
@@ -256,7 +334,7 @@ def main() -> None:
     # release with a simple glob (Kaggle keeps /kaggle/working as kernel output).
     import shutil
 
-    archive = shutil.make_archive(str(Path(args.output_root) / output.name), "gztar", output)
+    archive = shutil.make_archive(str(output), "gztar", output)
     print(f"results archive: {archive}", flush=True)
 
 
