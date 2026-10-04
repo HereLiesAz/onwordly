@@ -83,6 +83,24 @@ def _capability_gain_per_million_tokens(
     return (float(last_accuracy) - float(first_accuracy)) * 1_000_000 / training_tokens
 
 
+def _code_digest() -> str:
+    """SHA-256 over the installed onwordly sources, so code changes break resume."""
+    root = Path(__file__).resolve().parents[1]
+    digest = hashlib.sha256()
+    for path in sorted(root.rglob("*.py")):
+        digest.update(path.relative_to(root).as_posix().encode("utf-8"))
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def run_fingerprint(manifest: ArithmeticExperimentManifest) -> str:
+    """Identity of a run for resume: manifest plus the code that executes it."""
+    payload = json.dumps(
+        {"manifest": asdict(manifest), "code": _code_digest()}, sort_keys=True
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _adapter_factory(manifest: ArithmeticExperimentManifest) -> Callable[[], ModelAdapter]:
     def create() -> ModelAdapter:
         return HuggingFaceCausalLMAdapter(
@@ -189,6 +207,18 @@ def run_experiment(
 
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
+    fingerprint = run_fingerprint(manifest)
+    # Refuse before writing anything, so a rejected run cannot overwrite the
+    # frozen datasets that existing regime results were produced from.
+    for saved_path in sorted(output.glob("*.json")):
+        if saved_path.name == "summary.json":
+            continue
+        saved = json.loads(saved_path.read_text(encoding="utf-8"))
+        if "manifest_fingerprint" in saved and saved["manifest_fingerprint"] != fingerprint:
+            raise RuntimeError(
+                f"{saved_path} was produced by a different manifest or code version; "
+                "move it aside or use a fresh output directory"
+            )
 
     static_tasks = build_static_arithmetic_dataset(
         seed=manifest.dataset_seed,
@@ -259,21 +289,12 @@ def run_experiment(
 
     # Resume: a regime whose result file exists for this exact manifest is loaded,
     # not re-run. Regimes are independent (fresh model each), so this is sound.
-    fingerprint = hashlib.sha256(
-        json.dumps(asdict(manifest), sort_keys=True).encode("utf-8")
-    ).hexdigest()
     results["manifest_fingerprint"] = fingerprint
 
     for regime_name in regime_names:
         saved_path = output / f"{regime_name}.json"
         if saved_path.exists():
-            saved = json.loads(saved_path.read_text(encoding="utf-8"))
-            if saved.get("manifest_fingerprint") != fingerprint:
-                raise RuntimeError(
-                    f"{saved_path} was produced by a different manifest; "
-                    "move it aside or use a fresh output directory"
-                )
-            results["regimes"][regime_name] = saved
+            results["regimes"][regime_name] = json.loads(saved_path.read_text(encoding="utf-8"))
             continue
         regime_started = perf_counter()
         model_load_started = perf_counter()

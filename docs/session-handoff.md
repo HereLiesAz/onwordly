@@ -157,7 +157,7 @@ Decision input: switching to instruct + chat buys a small exact-score head start
 
 - Decision: run Experiment 001 as designed, with no format warm-up. The warm-up would inflate absolute scores by teaching the test format; format acquisition is instead left to each regime's own budget and measured, not removed. `format_warmup_tokens` stays available (default 0) but no manifest enables it.
 - Every arithmetic `RESULTS.md` now has an "Against the untrained baseline" table: step-0 (untrained) exact and lenient versus final held-out exact and lenient. A gain in lenient without exact is format-neutral capability; a gain in exact alone is mostly format.
-- Arithmetic runs resume at regime granularity: a regime whose `<regime>.json` exists for the same manifest (SHA-256 fingerprint) is loaded instead of re-run; a different manifest raises. Results are written atomically (`.partial` then rename). Mid-regime resume is not supported.
+- Arithmetic runs resume at regime granularity: a regime whose `<regime>.json` exists for the same manifest and code (SHA-256 over the manifest plus the installed `onwordly` sources) is loaded instead of re-run; any mismatch raises before datasets are rewritten. Results are written atomically (`.partial` then rename). Mid-regime resume is not supported.
 - `notebooks/experiment_colab.ipynb` runs the 001 smoke manifest, then the full manifest, on a Colab T4, writing to Google Drive so a dropped session resumes. Kaggle: `.kaggle-run` with `experiment: 001`, `mode: single`.
 
 ## Kaggle run 16 (Experiment 001, prepared)
