@@ -112,6 +112,39 @@ def render_single_run(summary: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
+            "## Against the untrained baseline",
+            "",
+            "Step 0 is the checkpoint evaluation before any training (the untrained",
+            "baseline on the checkpoint subset). Lenient = answer anywhere in the",
+            "response; diagnostic only, never used for training.",
+            "",
+            "| Regime | Warm-up tokens | Step-0 exact | Step-0 lenient | Final held-out exact | Final held-out lenient |",
+            "| --- | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for regime_name in _regime_order(summary):
+        regime = summary["regimes"][regime_name]
+        checkpoints = regime["training"].get("checkpoints") or [{}]
+        step0 = checkpoints[0].get("evaluation", {}) if checkpoints[0].get("actual_tokens") == 0 else {}
+        heldout = regime["evaluation"]["heldout"]
+        lines.append(
+            "| "
+            + " | ".join(
+                (
+                    regime_name,
+                    _num(regime["training"].get("warmup_tokens", 0)),
+                    _pct(step0.get("accuracy")),
+                    _pct(step0.get("lenient_accuracy")),
+                    _pct(heldout["accuracy"]),
+                    _pct(heldout.get("lenient_accuracy")),
+                )
+            )
+            + " |"
+        )
+
+    lines.extend(
+        [
+            "",
             "## Tokens to checkpoint threshold",
             "",
             "| Regime | 70% | 80% | 90% | 95% |",

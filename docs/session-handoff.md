@@ -153,6 +153,12 @@ See `docs/baseline-gpu.md`. Summary: exact accuracy is ~0 in every domain for bo
 
 Decision input: switching to instruct + chat buys a small exact-score head start on arithmetic only, at ~3× prompt tokens per example (13 → 42 for a short arithmetic prompt), so roughly a third as many examples per budget. The format warm-up on the base model with raw prompts remains the cheaper way to get a competence signal. If instruct is tried, it needs its own arm and its own baseline, not a silent swap.
 
+## Using the baseline (2026-10-04)
+
+- Decision: run Experiment 001 as designed, with no format warm-up. The warm-up would inflate absolute scores by teaching the test format; format acquisition is instead left to each regime's own budget and measured, not removed. `format_warmup_tokens` stays available (default 0) but no manifest enables it.
+- Every arithmetic `RESULTS.md` now has an "Against the untrained baseline" table: step-0 (untrained) exact and lenient versus final held-out exact and lenient. A gain in lenient without exact is format-neutral capability; a gain in exact alone is mostly format.
+- `notebooks/experiment_colab.ipynb` runs the 001 smoke manifest, then the full manifest, on a Colab T4. Kaggle: `.kaggle-run` with `experiment: 001`, `mode: single`.
+
 ## Exact next actions
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.
