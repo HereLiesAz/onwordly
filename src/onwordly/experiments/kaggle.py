@@ -7,6 +7,7 @@ from pathlib import Path
 from onwordly.experiments.ablation import ABLATION_REGIMES
 from onwordly.experiments.arithmetic import run_experiment
 from onwordly.experiments.manifest import ArithmeticExperimentManifest
+from onwordly.experiments.multi_gpu import run_parallel
 from onwordly.experiments.suite import run_suite
 from onwordly.reporting.arithmetic import render_result
 from onwordly.experiments.symbolic import run_symbolic_experiment
@@ -222,7 +223,8 @@ def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
 
     if plan.experiment == "001" and plan.mode == "single":
         output = root / "001-arithmetic-curriculum"
-        run_experiment(manifest, output_dir=output)
+        # Regimes are independent; spread them over every visible GPU.
+        run_parallel(plan.manifest, output_dir=output)
         result_path = output / "summary.json"
     elif plan.experiment == "001" and plan.mode == "suite":
         output = root / "001-arithmetic-curriculum-suite"
@@ -230,7 +232,7 @@ def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
         result_path = output / "aggregate.json"
     elif plan.experiment == "002":
         output = root / "002-adaptive-ablation"
-        run_experiment(manifest, output_dir=output, regimes=ABLATION_REGIMES)
+        run_parallel(plan.manifest, output_dir=output, regimes=ABLATION_REGIMES)
         result_path = output / "summary.json"
     else:
         raise ValueError(f"unsupported plan: {plan}")
@@ -249,7 +251,13 @@ def main() -> None:
     args = parser.parse_args()
 
     plan = load_run_plan(args.plan)
-    execute_run_plan(plan, args.output_root)
+    output = execute_run_plan(plan, args.output_root)
+    # One archive per run so the central finalizer can attach it to a GitHub
+    # release with a simple glob (Kaggle keeps /kaggle/working as kernel output).
+    import shutil
+
+    archive = shutil.make_archive(str(Path(args.output_root) / output.name), "gztar", output)
+    print(f"results archive: {archive}", flush=True)
 
 
 if __name__ == "__main__":
