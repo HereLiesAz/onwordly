@@ -146,3 +146,25 @@ def test_experiment_resumes_finished_regimes(tmp_path) -> None:
             output_dir=tmp_path,
             create_adapter=TinyLearningAdapter,
         )
+
+
+def test_resume_rejects_changed_code_before_touching_datasets(tmp_path, monkeypatch) -> None:
+    import pytest
+
+    import onwordly.experiments.arithmetic as arithmetic
+
+    run_experiment(_resume_manifest(), output_dir=tmp_path, create_adapter=TinyLearningAdapter)
+    frozen = (tmp_path / "static-train.jsonl").read_bytes()
+
+    monkeypatch.setattr(arithmetic, "_code_digest", lambda: "different-code")
+    with pytest.raises(RuntimeError, match="code version"):
+        run_experiment(_resume_manifest(), output_dir=tmp_path, create_adapter=TinyLearningAdapter)
+
+    monkeypatch.undo()
+    with pytest.raises(RuntimeError):
+        run_experiment(
+            _resume_manifest(dataset_seed=99),
+            output_dir=tmp_path,
+            create_adapter=TinyLearningAdapter,
+        )
+    assert (tmp_path / "static-train.jsonl").read_bytes() == frozen
