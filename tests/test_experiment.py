@@ -92,3 +92,57 @@ def test_experiment_serializes_all_three_regimes(tmp_path) -> None:
         "withheld_prompts",
         "out_of_range",
     }
+
+
+def _resume_manifest(**overrides) -> ArithmeticExperimentManifest:
+    values = dict(
+        model_name="fake",
+        token_budget=25,
+        static_dataset_size=12,
+        evaluation_size=12,
+        generalization_size=9,
+        checkpoint_evaluation_size=6,
+        checkpoint_interval_tokens=10,
+        dataset_seed=1,
+        evaluation_seed=2,
+        training_seed=3,
+        learning_rate=2e-5,
+        max_new_tokens=4,
+        digit_levels=(1,),
+        out_of_range_digit_levels=(2,),
+        operations=("add", "subtract", "multiply"),
+        withheld_prompt_styles=("question", "words", "expression"),
+        variants_per_failure=2,
+        holdout_modulus=5,
+    )
+    values.update(overrides)
+    return ArithmeticExperimentManifest(**values)
+
+
+def test_experiment_resumes_finished_regimes(tmp_path) -> None:
+    import pytest
+
+    first = run_experiment(
+        _resume_manifest(), output_dir=tmp_path, create_adapter=TinyLearningAdapter
+    )
+    (tmp_path / "adaptive.json").unlink()  # simulate an interruption before this regime
+    created: list[TinyLearningAdapter] = []
+
+    def counting_factory() -> TinyLearningAdapter:
+        adapter = TinyLearningAdapter()
+        created.append(adapter)
+        return adapter
+
+    second = run_experiment(
+        _resume_manifest(), output_dir=tmp_path, create_adapter=counting_factory
+    )
+    assert len(created) == 1  # only the missing regime re-ran
+    assert second["regimes"]["static"] == json.loads(json.dumps(first["regimes"]["static"]))
+    assert not list(tmp_path.glob("*.partial"))
+
+    with pytest.raises(RuntimeError, match="different manifest"):
+        run_experiment(
+            _resume_manifest(learning_rate=1e-4),
+            output_dir=tmp_path,
+            create_adapter=TinyLearningAdapter,
+        )
