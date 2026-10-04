@@ -1,8 +1,7 @@
-experiment: 002
+experiment: 001
 mode: single
 backend: kaggle
 accelerator: NvidiaTeslaT4
 model: Qwen/Qwen2.5-0.5B
-manifest: experiments/002-adaptive-ablation/manifest.json
-seeds: 3303,4404,5505
-run: 15
+manifest: experiments/001-arithmetic-curriculum/manifest.json
+run: 16
