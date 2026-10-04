@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -256,7 +257,24 @@ def run_experiment(
         "regimes": {},
     }
 
+    # Resume: a regime whose result file exists for this exact manifest is loaded,
+    # not re-run. Regimes are independent (fresh model each), so this is sound.
+    fingerprint = hashlib.sha256(
+        json.dumps(asdict(manifest), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    results["manifest_fingerprint"] = fingerprint
+
     for regime_name in regime_names:
+        saved_path = output / f"{regime_name}.json"
+        if saved_path.exists():
+            saved = json.loads(saved_path.read_text(encoding="utf-8"))
+            if saved.get("manifest_fingerprint") != fingerprint:
+                raise RuntimeError(
+                    f"{saved_path} was produced by a different manifest; "
+                    "move it aside or use a fresh output directory"
+                )
+            results["regimes"][regime_name] = saved
+            continue
         regime_started = perf_counter()
         model_load_started = perf_counter()
         adapter = factory()
@@ -350,10 +368,15 @@ def run_experiment(
                 "capability_gain_per_million_training_tokens": capability_gain,
             },
         }
+        regime_result["manifest_fingerprint"] = fingerprint
         results["regimes"][regime_name] = regime_result
-        with (output / f"{regime_name}.json").open("w", encoding="utf-8") as handle:
+        # Write then rename so an interrupted write never leaves a partial file
+        # that a resumed run would trust.
+        partial = saved_path.with_suffix(".json.partial")
+        with partial.open("w", encoding="utf-8") as handle:
             json.dump(regime_result, handle, indent=2, sort_keys=True)
             handle.write("\n")
+        partial.replace(saved_path)
         _close_adapter(adapter)
         del adapter
 
