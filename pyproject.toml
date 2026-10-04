@@ -39,6 +39,7 @@ onwordly-logic-report = "onwordly.reporting.formal_logic:main"
 onwordly-kaggle = "onwordly.experiments.kaggle:main"
 onwordly-audit = "onwordly.diagnostics.audit:main"
 onwordly-baseline = "onwordly.diagnostics.baseline:main"
+onwordly-publish = "onwordly.publish:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

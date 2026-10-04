@@ -180,6 +180,10 @@ Next compute, in order: (1) Experiment 001 suite over seeds 3303, 4404, 5505; (2
 
 Motivated by 001 run 16: error-focused training adds more moves of the arithmetic game but never the game of correcting an answer. 008 interleaves corrective moves ("…A previous answer was 272. If it is wrong, return the correct integer; if it is right, return it unchanged.") into the static stream, showing either the model's own wrong answer from the pre-update attempt (`corrective-own`) or a synthetic plausible error (`corrective-synthetic`), plus confirm moves (p = 0.25) after right answers. Static and error-focused are references. New held-out measures: correction, confirmation, two-pass self-correction. Corrective moves only start once the model emits parseable integers (in 001 that took < 10k tokens). Kaggle: `experiment: 008` (single) or batch `jobs: 008`. See `experiments/008-corrective-language-game/README.md`.
 
+## Publishing results from Kaggle/Colab
+
+`onwordly.publish.publish_results` (CLI `onwordly-publish`) pushes a finished results tree, minus `.jsonl` datasets and archives, to `results/kaggle/<stamp>/` on a new branch `kaggle-results/<stamp>`; it never writes to main. The Kaggle notebook calls it in a `finally`, so results upload the moment the run stops, even after a failure. It needs a Kaggle secret `GITHUB_TOKEN` (contents: write). Kaggle keeps `/kaggle/working/results` as the notebook's output regardless.
+
 ## Exact next actions
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.
