@@ -168,3 +168,20 @@ def test_resume_rejects_changed_code_before_touching_datasets(tmp_path, monkeypa
             create_adapter=TinyLearningAdapter,
         )
     assert (tmp_path / "static-train.jsonl").read_bytes() == frozen
+
+
+def test_corrective_regimes_run_and_report(tmp_path) -> None:
+    from onwordly.reporting.arithmetic import render_result
+
+    manifest = _resume_manifest(token_budget=60, corrective_evaluation_size=6)
+    result = run_experiment(
+        manifest,
+        output_dir=tmp_path,
+        create_adapter=TinyLearningAdapter,
+        regimes=("static", "corrective-own", "corrective-synthetic"),
+    )
+    own = result["regimes"]["corrective-own"]
+    assert own["corrective_tasks_queued"]["correct"] > 0  # "0" is a parseable wrong answer
+    assert own["corrective_evaluation"]["examples"] == 6
+    assert result["regimes"]["static"]["corrective_tasks_queued"] is None
+    assert "Corrective language game" in render_result(tmp_path / "summary.json")

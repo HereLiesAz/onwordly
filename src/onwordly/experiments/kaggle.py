@@ -40,7 +40,16 @@ DEFAULT_MANIFESTS: dict[str, str] = {
     "005": "experiments/005-program-execution/manifest.json",
     "006": "experiments/006-formal-logic/manifest.json",
     "007": "experiments/007-program-process-supervision/manifest.json",
+    "008": "experiments/008-corrective-language-game/manifest.json",
 }
+
+# Experiment 008: static and error-focused as references, two corrective arms.
+CORRECTIVE_REGIMES: tuple[str, ...] = (
+    "static",
+    "corrective-own",
+    "corrective-synthetic",
+    "error-focused",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +117,8 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
         raise ValueError("at least one seed is required")
     if experiment == "002" and mode == "suite":
         raise ValueError("Experiment 002 suite is gated until Experiment 001 is interpreted")
+    if experiment == "008" and mode == "suite":
+        raise ValueError("Experiment 008 suite is gated until a single run is inspected")
     if experiment == "007" and mode == "suite":
         raise ValueError("Experiment 007 suite is gated until its single-run accounting is inspected")
 
@@ -149,6 +160,7 @@ BATCH_JOBS: dict[str, str] = {
     "001": DEFAULT_MANIFESTS["001"],
     "001-suite": DEFAULT_MANIFESTS["001"],
     "002": DEFAULT_MANIFESTS["002"],
+    "008": DEFAULT_MANIFESTS["008"],
 }
 
 
@@ -175,8 +187,11 @@ def _job_units(job: str, seeds: tuple[int, ...], root: Path) -> tuple[list[tuple
             return output
 
         return units, finish
-    regimes = ABLATION_REGIMES if job == "002" else DEFAULT_REGIMES
-    output = root / ("002-adaptive-ablation" if job == "002" else "001-arithmetic-curriculum")
+    regimes = {"002": ABLATION_REGIMES, "008": CORRECTIVE_REGIMES}.get(job, DEFAULT_REGIMES)
+    output = root / {
+        "002": "002-adaptive-ablation",
+        "008": "008-corrective-language-game",
+    }.get(job, "001-arithmetic-curriculum")
     units = [(manifest_path, str(output), regime) for regime in regimes]
 
     def finish() -> Path:
@@ -308,6 +323,10 @@ def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
         run_units(units, devices=max(1, gpu_count()))
         output = finish()
         return output
+    elif plan.experiment == "008":
+        output = root / "008-corrective-language-game"
+        run_parallel(plan.manifest, output_dir=output, regimes=CORRECTIVE_REGIMES)
+        result_path = output / "summary.json"
     elif plan.experiment == "002":
         output = root / "002-adaptive-ablation"
         run_parallel(plan.manifest, output_dir=output, regimes=ABLATION_REGIMES)

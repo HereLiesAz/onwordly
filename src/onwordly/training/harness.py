@@ -199,7 +199,12 @@ def run_equal_token_training(
         verifier_seconds += verified - generated
         verifier_calls += 1
         correct_before_train += int(correct)
-        source.observe(task, correct)
+        observe_response = getattr(source, "observe_response", None)
+        if callable(observe_response):
+            # Sources that need the model's actual answer (Experiment 008).
+            observe_response(task, response, correct)
+        else:
+            source.observe(task, correct)
 
         bucket_key = task.bucket_key
         bucket = buckets.setdefault(bucket_key, BucketRunStats())

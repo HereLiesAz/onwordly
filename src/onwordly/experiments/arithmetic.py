@@ -19,6 +19,8 @@ from onwordly.experiments.manifest import ArithmeticExperimentManifest
 from onwordly.models.base import ModelAdapter
 from onwordly.models.huggingface import HuggingFaceCausalLMAdapter
 from onwordly.training.evaluation import EvaluationResult, evaluate_arithmetic
+from onwordly.training.corrective_evaluation import evaluate_corrective
+from onwordly.training.corrective_sources import CorrectiveArithmeticSource
 from onwordly.training.harness import run_equal_token_training
 from onwordly.training.sources import (
     AdaptiveArithmeticSource,
@@ -147,6 +149,13 @@ def _source_for_regime(
         return ErrorFocusedArithmeticSource(
             _adaptive_curriculum(manifest),
             variants_per_failure=manifest.variants_per_failure,
+        )
+    if regime in ("corrective-own", "corrective-synthetic"):
+        return CorrectiveArithmeticSource(
+            static_tasks,
+            previous="own" if regime == "corrective-own" else "synthetic",
+            confirm_probability=manifest.confirm_probability,
+            seed=manifest.training_seed,
         )
     if regime == "error-focused-uniform":
         return ErrorFocusedArithmeticSource(
@@ -321,10 +330,11 @@ def run_experiment(
             checkpoint_generation_calls += len(checkpoint_tasks)
             return {"evaluation": evaluation.to_dict()}
 
+        source = _source_for_regime(regime_name, manifest, static_tasks)
         training = run_equal_token_training(
             regime=regime_name,
             adapter=adapter,
-            source=_source_for_regime(regime_name, manifest, static_tasks),
+            source=source,
             token_budget=manifest.token_budget,
             # Warm-up comes from the pool's tail, which the static regime
             # reaches last, so it rarely duplicates static training items.
@@ -341,6 +351,14 @@ def run_experiment(
         prompt_transfer = evaluate_arithmetic(adapter, prompt_transfer_tasks)
         withheld = evaluate_arithmetic(adapter, withheld_prompt_tasks)
         out_of_range = evaluate_arithmetic(adapter, out_of_range_tasks)
+        corrective = None
+        if manifest.corrective_evaluation_size:
+            # Same held-out items and seed for every regime, including static.
+            corrective = evaluate_corrective(
+                adapter,
+                heldout_tasks[: manifest.corrective_evaluation_size],
+                seed=manifest.evaluation_seed,
+            )
         _synchronize_adapter(adapter)
         final_evaluation_seconds = perf_counter() - started
         final_evaluation_calls = (
@@ -348,6 +366,7 @@ def run_experiment(
             + len(prompt_transfer_tasks)
             + len(withheld_prompt_tasks)
             + len(out_of_range_tasks)
+            + (int(corrective["generation_calls"]) if corrective else 0)
         )
         total_evaluation_calls = checkpoint_generation_calls + final_evaluation_calls
 
@@ -368,6 +387,8 @@ def run_experiment(
             },
             "training": training.to_dict(),
             "tokens_to_threshold": _tokens_to_threshold(training.checkpoints),
+            "corrective_evaluation": corrective,
+            "corrective_tasks_queued": getattr(source, "queued", None),
             "evaluation": _serialize_evaluations(
                 heldout,
                 prompt_transfer,
