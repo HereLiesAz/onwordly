@@ -382,7 +382,11 @@ MUL = make_arithmetic_task(47, 6, "multiply")  # 282
         ("272", "wrong: 290", "wrong_caught_close_repair", 0.4, 0.0),
         ("272", "wrong: 300", "wrong_caught_far_repair", 0.3, 0.0),
         ("272", "wrong: 272", "wrong_caught_close_repair", 0.4, 0.0),
-        ("272", "right", "wrong_accepted", 0.0, 0.0),
+        ("272", "right", "close_accepted", 0.2, 0.0),
+        ("268", "right", "close_accepted", 0.2, 0.0),
+        ("267", "right", "far_accepted", 0.0, 0.0),
+        ("300", "wrong: 282", "wrong_repaired", 0.6, 1.0),
+        ("300", "wrong: 1", "wrong_caught_far_repair", 0.3, 0.0),
         ("282", "wrong: 282", "right_rejected", -0.5, 1.0),
         ("282", "wrong: 5", "right_rejected", -0.5, 0.0),
         ("282", "maybe", "unparseable_verdict", 0.0, 0.0),
@@ -403,6 +407,9 @@ def test_close_repair_boundary() -> None:
     assert is_close_repair(-268, -282) and not is_close_repair(-267, -282)
     # The absolute floor of 1 for small answers.
     assert is_close_repair(4, 3) and is_close_repair(-1, 0) and not is_close_repair(5, 3)
+    from onwordly.training.selfcheck_episodes import CLOSE_ACCEPTED_REWARD
+
+    assert GRADED_EPISODE_REWARDS["close_accepted"] == CLOSE_ACCEPTED_REWARD == 0.2
 
 
 class EpisodeAdapter(ScriptedPolicyAdapter):
@@ -526,3 +533,35 @@ def test_verdict_rl_binary_path_unchanged() -> None:
     assert tiers["correct"] == result.on_policy["samples_correct"]
     assert result.on_policy["episodes"] == result.on_policy["sample_generation_calls"]
     assert {(c, w) for _, c, w in adapter.weighted} == {("right", 0.5), ("junk", -0.5)}
+
+
+def test_on_policy_tasks_skip_greedy_attempt() -> None:
+    class Counting(EpisodeAdapter):
+        def __init__(self) -> None:
+            super().__init__({True: "right", False: "right"})
+            self.greedy: list[str] = []
+
+        def generate(self, prompt: str) -> str:
+            self.greedy.append(prompt)
+            return super().generate(prompt)
+
+    adapter = Counting()
+    result = _episodes("graded", adapter)
+    # Greedy calls are exactly the SFT arithmetic tasks; episodes go straight to sampling.
+    assert len(adapter.greedy) == len(adapter.sft) == result.pre_update_attempts
+    assert result.generation_calls == len(adapter.greedy) + result.on_policy["sample_generation_calls"]
+    assert sum(b["attempts"] for b in result.bucket_stats.values()) == len(adapter.sft)
+    assert not any(key.startswith("selfcheck:") for key in result.bucket_stats)
+
+    single = ScriptedPolicyAdapter()
+    calls: list[str] = []
+    original = single.generate
+    single.generate = lambda prompt: calls.append(prompt) or original(prompt)
+    source = VerdictArithmeticSource(
+        ADD_TASKS, wrong_source="synthetic", verdict_rate=1.0, seed=0,
+        on_policy=OnPolicyConfig(samples=4, temperature=0.7),
+    )
+    run_equal_token_training(
+        regime="verdict-rl", adapter=single, source=source, token_budget=400, seed=0, verifier=verify_task
+    )
+    assert calls and not any("proposed answer" in prompt for prompt in calls)

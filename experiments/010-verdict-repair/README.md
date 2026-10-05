@@ -57,16 +57,23 @@ the model's own attempt. Wrong proposals are synthetic near misses.
   Both turns are trained with the episode's advantage (reward − group mean).
   A group whose rewards are all equal is skipped, as in `verdict-rl`.
 
-  Episode rewards:
+  On-policy tasks in all three RL arms go straight to sampling. They get no
+  greedy pre-update attempt and no source observation. They are therefore
+  absent from `pre_update_attempts`, `correct_before_train` and
+  `bucket_stats`, which cover SFT tasks only.
+
+  Episode rewards. Turn 1 is classed right, close, far or unparseable, using
+  the close tolerance below; "wrong" means close or far.
 
   | Episode | graded | binary (final answer correct) |
   | --- | ---: | ---: |
   | turn 1 right, said right | 1.0 | 1 |
+  | turn 1 right, said wrong | −0.5 | 1 if the "repair" equals the answer, else 0 |
   | turn 1 wrong, said wrong, exact repair | 0.6 | 1 |
   | turn 1 wrong, said wrong, close repair | 0.4 | 0 |
   | turn 1 wrong, said wrong, far repair | 0.3 | 0 |
-  | turn 1 wrong, said right | 0.0 | 0 |
-  | turn 1 right, said wrong | −0.5 | 1 if the "repair" equals the answer, else 0 |
+  | turn 1 close, said right | 0.2 (`CLOSE_ACCEPTED_REWARD`) | 0 |
+  | turn 1 far, said right | 0.0 | 0 |
   | unparseable verdict or turn 1 | 0.0 | 0 |
 
   A repair is "close" when |repair − answer| ≤ max(1, 0.05·|answer|)

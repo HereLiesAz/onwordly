@@ -145,7 +145,12 @@ class TrainingRunResult:
 
     @property
     def pre_update_attempts(self) -> int:
-        """Greedy pre-update attempts (generation calls minus on-policy samples)."""
+        """Greedy pre-update attempts: SFT tasks only.
+
+        On-policy tasks get no greedy attempt (they go straight to sampling),
+        so this is generation calls minus on-policy sample calls, and
+        ``correct_before_train`` and ``bucket_stats`` cover SFT tasks only.
+        """
         samples = int(self.on_policy["sample_generation_calls"] or 0) if self.on_policy else 0
         return self.generation_calls - samples
 
@@ -216,7 +221,10 @@ def run_equal_token_training(
     ``OnPolicyConfig``, that task is trained by a group of sampled completions
     (see ``OnPolicyConfig``) instead of SFT on its target. Every trained
     (prompt, completion) pair counts its tokens toward ``token_budget``; a
-    group that would not fit ends training, as an SFT task would. Sampling is
+    group that would not fit ends training, as an SFT task would. On-policy
+    tasks skip the greedy pre-update attempt and source observation; they
+    are absent from ``correct_before_train``, ``pre_update_attempts`` and
+    ``bucket_stats``. Sampling is
     billed as generation calls/seconds and sample checks as verifier calls,
     and is also reported separately under ``on_policy``.
     """
@@ -290,31 +298,31 @@ def run_equal_token_training(
                 raise RuntimeError("adapter reported a non-positive training token count")
             if training_tokens + planned_tokens > token_budget:
                 break
+            # Greedy pre-update attempt; on-policy tasks skip it (they sample instead).
+            _synchronize_adapter(adapter)
+            started = perf_counter()
+            response = adapter.generate(task.prompt)
+            _synchronize_adapter(adapter)
+            generated = perf_counter()
+            generation_seconds += generated - started
+            generation_calls += 1
+            generated_characters += len(response)
+            correct = verifier(task, response)
+            verified = perf_counter()
+            verifier_seconds += verified - generated
+            verifier_calls += 1
+            correct_before_train += int(correct)
+            observe_response = getattr(source, "observe_response", None)
+            if callable(observe_response):
+                # Sources that need the model's actual answer (Experiment 008).
+                observe_response(task, response, correct)
+            else:
+                source.observe(task, correct)
 
-        _synchronize_adapter(adapter)
-        started = perf_counter()
-        response = adapter.generate(task.prompt)
-        _synchronize_adapter(adapter)
-        generated = perf_counter()
-        generation_seconds += generated - started
-        generation_calls += 1
-        generated_characters += len(response)
-        correct = verifier(task, response)
-        verified = perf_counter()
-        verifier_seconds += verified - generated
-        verifier_calls += 1
-        correct_before_train += int(correct)
-        observe_response = getattr(source, "observe_response", None)
-        if callable(observe_response):
-            # Sources that need the model's actual answer (Experiment 008).
-            observe_response(task, response, correct)
-        else:
-            source.observe(task, correct)
-
-        bucket_key = task.bucket_key
-        bucket = buckets.setdefault(bucket_key, BucketRunStats())
-        bucket.attempts += 1
-        bucket.correct_before_train += int(correct)
+            bucket_key = task.bucket_key
+            bucket = buckets.setdefault(bucket_key, BucketRunStats())
+            bucket.attempts += 1
+            bucket.correct_before_train += int(correct)
 
         if policy is not None:
             if on_policy_stats is None:

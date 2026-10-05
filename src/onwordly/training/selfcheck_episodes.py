@@ -2,6 +2,9 @@
 
 Arms ``verdict-rl-graded`` and ``selfcheck-rl-binary`` train the same episode:
 
+Neither the greedy pre-update attempt nor source observation runs for
+these tasks; they go straight to sampling.
+
 1. turn 1 samples an answer to an arithmetic training prompt;
 2. turn 2 samples a verdict on ``make_verdict_task(task, parsed_turn1)``
    (``right`` or ``wrong: <n>``), i.e. the model judges its own answer.
@@ -11,8 +14,9 @@ trained). The two arms differ only in the episode reward, so graded-vs-binary
 is isolated on identical episodes.
 
 Graded rewards for an improvement-bonus style signal (turn-1 right and kept
-scores most; a wrong answer caught and exactly repaired scores 0.6; rejecting
-a right answer is penalised) are reward shaping, as in SCoRe stage II
+scores most; a wrong answer caught and exactly repaired scores 0.6; accepting
+a close wrong answer earns CLOSE_ACCEPTED_REWARD; rejecting a right answer is
+penalised) are reward shaping, as in SCoRe stage II
 (arXiv:2409.12917); established, not an Onwordly invention.
 """
 from __future__ import annotations
@@ -31,14 +35,20 @@ from onwordly.verifiers.arithmetic import parse_integer_answer
 CLOSE_REPAIR_MIN_ABS = 1
 CLOSE_REPAIR_REL = 0.05
 
-# Episode tier -> graded reward (verdict-rl-graded).
+# Partial credit for accepting a turn-1 answer that was wrong but close
+# (same tolerance as a close repair).
+CLOSE_ACCEPTED_REWARD = 0.2
+
+# Episode tier -> graded reward (verdict-rl-graded). Turn 1 is classed right /
+# close / far / unparseable; "wrong" means close or far.
 GRADED_EPISODE_REWARDS: dict[str, float] = {
     "right_kept": 1.0,
+    "right_rejected": -0.5,
     "wrong_repaired": 0.6,
     "wrong_caught_close_repair": 0.4,
     "wrong_caught_far_repair": 0.3,
-    "wrong_accepted": 0.0,
-    "right_rejected": -0.5,
+    "close_accepted": CLOSE_ACCEPTED_REWARD,
+    "far_accepted": 0.0,
     "unparseable_verdict": 0.0,
     "unparseable_answer": 0.0,
 }
@@ -64,7 +74,9 @@ def classify_episode(task: ArithmeticTask, turn1: str, turn2: str | None) -> tup
         return "unparseable_verdict", None
     first_ok = first == task.answer
     if verdict[0]:
-        return ("right_kept" if first_ok else "wrong_accepted"), first
+        if first_ok:
+            return "right_kept", first
+        return ("close_accepted" if is_close_repair(first, task.answer) else "far_accepted"), first
     repair = verdict[1]
     assert repair is not None
     if first_ok:
