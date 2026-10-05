@@ -22,6 +22,9 @@ from onwordly.training.evaluation import EvaluationResult, evaluate_arithmetic
 from onwordly.training.corrective_evaluation import evaluate_corrective
 from onwordly.training.corrective_sources import CorrectiveArithmeticSource
 from onwordly.training.harness import run_equal_token_training
+from onwordly.training.verdict_evaluation import evaluate_verdict
+from onwordly.training.verdict_sources import VerdictArithmeticSource
+from onwordly.tasks.verdict import verify_task
 from onwordly.training.sources import (
     AdaptiveArithmeticSource,
     ArithmeticTaskSource,
@@ -155,6 +158,13 @@ def _source_for_regime(
             static_tasks,
             previous="own" if regime == "corrective-own" else "synthetic",
             confirm_probability=manifest.confirm_probability,
+            seed=manifest.training_seed,
+        )
+    if regime in ("verdict-synthetic", "verdict-mixed"):
+        return VerdictArithmeticSource(
+            static_tasks,
+            wrong_source="synthetic" if regime == "verdict-synthetic" else "mixed",
+            verdict_rate=manifest.verdict_rate,
             seed=manifest.training_seed,
         )
     if regime == "error-focused-uniform":
@@ -343,6 +353,7 @@ def run_experiment(
             seed=manifest.training_seed,
             checkpoint_interval_tokens=manifest.checkpoint_interval_tokens,
             checkpoint_callback=checkpoint_callback,
+            verifier=verify_task,
         )
 
         _synchronize_adapter(adapter)
@@ -359,6 +370,13 @@ def run_experiment(
                 heldout_tasks[: manifest.corrective_evaluation_size],
                 seed=manifest.evaluation_seed,
             )
+        verdict = None
+        if manifest.verdict_evaluation_size:
+            verdict = evaluate_verdict(
+                adapter,
+                heldout_tasks[: manifest.verdict_evaluation_size],
+                seed=manifest.evaluation_seed,
+            )
         _synchronize_adapter(adapter)
         final_evaluation_seconds = perf_counter() - started
         final_evaluation_calls = (
@@ -367,6 +385,7 @@ def run_experiment(
             + len(withheld_prompt_tasks)
             + len(out_of_range_tasks)
             + (int(corrective["generation_calls"]) if corrective else 0)
+            + (int(verdict["generation_calls"]) if verdict else 0)
         )
         total_evaluation_calls = checkpoint_generation_calls + final_evaluation_calls
 
@@ -389,6 +408,7 @@ def run_experiment(
             "tokens_to_threshold": _tokens_to_threshold(training.checkpoints),
             "corrective_evaluation": corrective,
             "corrective_tasks_queued": getattr(source, "queued", None),
+            "verdict_evaluation": verdict,
             "evaluation": _serialize_evaluations(
                 heldout,
                 prompt_transfer,

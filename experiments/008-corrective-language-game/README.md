@@ -1,6 +1,6 @@
 # Experiment 008 — Corrective arithmetic language game
 
-**Status:** prepared, not run.
+**Status:** one real-model seed run; see `RESULTS.md`.
 
 ## Why
 

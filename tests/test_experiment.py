@@ -185,3 +185,19 @@ def test_corrective_regimes_run_and_report(tmp_path) -> None:
     assert own["corrective_evaluation"]["examples"] == 6
     assert result["regimes"]["static"]["corrective_tasks_queued"] is None
     assert "Corrective language game" in render_result(tmp_path / "summary.json")
+
+
+def test_verdict_regimes_run_and_report(tmp_path) -> None:
+    from onwordly.reporting.arithmetic import render_result
+
+    manifest = _resume_manifest(token_budget=60, verdict_evaluation_size=6, verdict_rate=1.0)
+    result = run_experiment(
+        manifest,
+        output_dir=tmp_path,
+        create_adapter=TinyLearningAdapter,
+        regimes=("static", "verdict-synthetic", "verdict-mixed"),
+    )
+    mixed = result["regimes"]["verdict-mixed"]
+    assert sum(mixed["corrective_tasks_queued"].values()) > 0
+    assert mixed["verdict_evaluation"]["examples"] == 6
+    assert "Verdict game" in render_result(tmp_path / "summary.json")

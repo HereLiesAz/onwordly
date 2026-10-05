@@ -184,6 +184,14 @@ Motivated by 001 run 16: error-focused training adds more moves of the arithmeti
 
 `onwordly.publish.publish_results` (CLI `onwordly-publish`) pushes a finished results tree, minus `.jsonl` datasets and archives, to `results/kaggle/<stamp>/` on a new branch `kaggle-results/<stamp>`; it never writes to main. The Kaggle notebook calls it in a `finally`, so results upload the moment the run stops, even after a failure. It needs a Kaggle secret `GITHUB_TOKEN` (contents: write). Kaggle keeps `/kaggle/working/results` as the notebook's output regardless.
 
+## Experiment 008 first result (2026-10-05, one seed)
+
+Neither corrective arm learned to correct (two-pass self-correction never improves). `corrective-own` learned to ignore the shown answer (correction = confirmation = arithmetic ≈ 74.7%); `corrective-synthetic` learned to copy it (confirmation 88.6%, correction 4.6%). Untrained regimes are suggestible: shown their own correct answer, static breaks 114/500. Next design candidate: an explicit, exactly verifiable verdict move (right/wrong) balanced so copying and ignoring both score at chance. Details: `experiments/008-corrective-language-game/RESULTS.md`.
+
+## Experiment 009 — verdict game (prepared 2026-10-05)
+
+Answer to 008's result: the move is a judgement. Shown a proposal (right with p = 0.5, independent of the model's attempt), the model replies `right` or `wrong: <correct integer>`; copying scores 50%, ignoring cannot answer. Arms: verdict-synthetic, verdict-mixed (own wrong answers when available), plus static and 008's corrective-synthetic as controls. Evaluation adds balanced verdict accuracy and a self-check (answer → judge own answer → keep or repair). Harness verification now dispatches per task (`verify_task`), identical for existing task types. Kaggle: `experiment: 009`. See `experiments/009-verdict-language-game/README.md`.
+
 ## Exact next actions
 
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.
