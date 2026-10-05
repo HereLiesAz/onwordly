@@ -1,7 +1,6 @@
-experiment: prior
+experiment: 000
 mode: single
 backend: kaggle
 accelerator: NvidiaTeslaT4
-models: Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-0.5B-Instruct
-n: 200
-run: 17
+manifest: experiments/000-onwordly-learner/smoke-manifest.json
+run: 18
