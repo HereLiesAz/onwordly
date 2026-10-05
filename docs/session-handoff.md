@@ -18,7 +18,13 @@ Prepared and CPU-tested (tiny end-to-end run in `tests/learner/`); no full run. 
 - Notebook: `notebooks/experiment_kaggle.ipynb` runs 000 and publishes results via `onwordly.publish` in a `finally` (upload failure is non-fatal).
 - CI: `.github/workflows/ci.yml` (local; per the centralization rule it should move to the central controller). Torch-dependent tests skip when torch is not installed, and CI installs only `.[dev]`.
 
+## Experiment 000 first full run (one seed)
+
+Results on branch `claude/elegant-ritchie-d75ukh` (`experiments/000-onwordly-learner/RESULTS.md`): every register-reading arm collapsed (≤ 0.7% held-out solve); `learner-no-memory` 75.3% with earned-trust behaviour. Hypothesis: register is a train-time answer channel. Diagnostics built on `claude/000-memory-diagnostics` (training-frame probe, held-out second visit, `learner-self-memory`, `learner-memory-dropout`; see the 000 README "Memory diagnostics").
+
 ## Next actions
+
+0. Run 000 with the diagnostic arms (`arms: learner,learner-no-memory,learner-self-memory,learner-memory-dropout`, ~2–2.5 h on T4) and read it against the pre-registered memory-diagnostics criteria before changing the memory design.
 
 1. Collect run 17 results; record them in `docs/findings-llm-phase.md`.
 2. Inspect run 18 (000 smoke).

@@ -10,6 +10,8 @@ ARMS: tuple[str, ...] = (
     "learner-flat",  # baseline 2: same, flat update weighting
     "learner-no-memory",  # baseline 3: memory read zeroed
     "learner-no-trust",  # baseline 4: trust read zeroed
+    "learner-self-memory",  # diagnostic: register read limited to source="self" fillers
+    "learner-memory-dropout",  # diagnostic: training register read replaced by empty with prob memory_dropout
     "plain",  # baseline 1: one-pass MLP, standard supervised loss, matched parameters
     "handcoded",  # baseline 5: aive-style hold/change rule on top of "plain"
 )
@@ -46,6 +48,12 @@ class LearnerManifest:
     register_cap: int = 6
     handcoded_threshold: float = 0.7
     handcoded_strikes: int = 3
+    # Diagnostics (README, "Memory diagnostics"): probability that a training
+    # register read is replaced by the empty-register encoding
+    # (learner-memory-dropout only), and the number of training problems in
+    # the post-training register probe.
+    memory_dropout: float = 0.5
+    probe_size: int = 512
     arms: tuple[str, ...] = field(default=ARMS)
 
     @property
@@ -86,6 +94,10 @@ class LearnerManifest:
         for _, rate in (*self.correctors, self.unseen_corrector):
             if not 0.0 <= rate < 1.0:
                 raise ValueError("corrector error rates must be in [0, 1)")
+        if not 0.0 <= self.memory_dropout <= 1.0:
+            raise ValueError("memory_dropout must be in [0, 1]")
+        if self.probe_size < 1:
+            raise ValueError("probe_size must be positive")
         if set(self.arms) - set(ARMS) or not self.arms:
             raise ValueError(f"arms must be chosen from {ARMS}")
         if "handcoded" in self.arms and "plain" not in self.arms:
