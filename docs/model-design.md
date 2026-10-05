@@ -26,7 +26,7 @@ Time follows the same path: a raw memory keeps its exact timestamp; once consoli
 
 ## Parsing into memory
 
-A raw episode is summarized in full (the root), split into its largest segments, each summarized, each split again and summarized, down to single claims or actions. Every link between two memories carries a summary of the pair — what they mean together — written when the link is made, during consolidation, so it exists before the link is first accessed. Recall never waits on a summary.
+A raw episode is summarized in full (the root), split into its largest segments, each summarized, each split again and summarized, down to single claims or actions. Without a model to write summaries, the fallback selects the highest-weighted paragraphs — the natural unit of a thought — not sentences. Every link between two memories carries a summary of the pair — what they mean together — written when the link is made, during consolidation, so it exists before the link is first accessed. Recall never waits on a summary.
 
 ## Components
 
