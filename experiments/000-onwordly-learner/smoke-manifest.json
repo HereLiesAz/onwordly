@@ -65,6 +65,7 @@
     "learner-self-memory",
     "learner-memory-dropout",
     "learner-first-visit",
+    "learner-child",
     "plain",
     "handcoded"
   ],

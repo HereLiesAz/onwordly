@@ -12,6 +12,8 @@ from pathlib import Path
 from time import perf_counter
 from typing import Sequence
 
+from dataclasses import replace
+
 import torch
 
 from onwordly.learner.manifest import LearnerManifest
@@ -145,12 +147,27 @@ def run_learner_experiment(
 
             rec = run_rec(learner_solve, learner_decider(model, variant, steps, device), memory, variant.register_sources,
                           variant.use_memory)
+            ablation = None
+            if rec is not None and variant.use_memory and arm in manifest.recurring_source_ablation:
+                # Eval-time only: same trained model, fresh eval view per variant.
+                ablation = {}
+                for sources in manifest.recurring_ablation_sources:
+                    if sources == variant.register_sources:
+                        continue
+                    alt = replace(variant, register_sources=sources)
+
+                    def alt_solve(batch, view, model=model, alt=alt):
+                        return [row[-1] for row in solve_learner(model, view, alt, batch, steps, device)[0]]
+
+                    ablation[sources] = run_rec(alt_solve, learner_decider(model, alt, steps, device), memory, sources, True)
             summary["arms"][arm] = {
                 "parameters": parameter_count(model),
                 "training": log.to_dict(),
                 "memory": memory.report(),
                 "memory_diagnostics": diagnostics,
                 "recurring": rec,
+                "recurring_sources": variant.register_sources if variant.use_memory else None,
+                "recurring_source_ablation": ablation,
                 "solve": solve_metrics(eval_tasks, answers, confs),
                 "challenge": challenge,
                 "wall_seconds": perf_counter() - started,
@@ -274,7 +291,12 @@ def _pp(value: object) -> str:
 
 
 def render_recurring(summary: dict) -> list[str]:
-    arms = [(arm, r["recurring"]) for arm, r in summary["arms"].items() if r.get("recurring")]
+    arms = []
+    for arm, r in summary["arms"].items():
+        if r.get("recurring"):
+            arms.append((arm, r["recurring"]))
+            for sources, rec in (r.get("recurring_source_ablation") or {}).items():
+                arms.append((f"{arm}[{sources}]", rec))
     if not arms:
         return []
     visits = arms[0][1]["visits"]
@@ -287,7 +309,9 @@ def render_recurring(summary: dict) -> list[str]:
         "between two visits of a frame. Each visit: attempt (reads the frame's eval register), challenge (A/B/C per visit), "
         "hold/change, exact verifier; all written to a forked eval register (self + corrector fillers readable; verifier "
         "stored, not read; ledger frozen). Solve = before challenge, final = after. Δ = visit k − visit 1; "
-        "vs no-mem = final minus learner-no-memory's final at the same visit (points).",
+        "vs no-mem = final minus learner-no-memory's final at the same visit (points). "
+        "Rows `arm[sources]`: the same trained model, eval-register reads limited at evaluation to `self` "
+        "(its own answers), `correctors` (what it was told) or `all` (both).",
         "",
         "| Arm | Visit | Register non-empty | Solve | Final | Hold right vs wrong | Change wrong under correct | Hold when told wrong | Final vs no-mem |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -325,16 +349,17 @@ def render_recurring(summary: dict) -> list[str]:
         "",
         "Per corrector (final accuracy by visit; hold right vs wrong / change wrong under correct at the last visit):",
         "",
-        "| Arm | Corrector | Final by visit | Hold right (last) | Change wrong (last) |",
-        "| --- | --- | --- | ---: | ---: |",
+        "| Arm | Corrector | Final by visit | Hold when told wrong by visit | Hold right (last) | Change wrong (last) |",
+        "| --- | --- | --- | --- | ---: | ---: |",
     ]
     for arm, rec in arms:
         last = rec["per_visit"][str(visits)]["by_corrector"]
         for name in sorted(last):
             series = " → ".join(_pct(rec["per_visit"][str(v)]["by_corrector"].get(name, {}).get("final_accuracy")) for v in range(1, visits + 1))
+            told = " → ".join(_pct(rec["per_visit"][str(v)]["by_corrector"].get(name, {}).get("hold_rate_when_said_wrong")) for v in range(1, visits + 1))
             c = last[name]
             lines.append(
-                f"| {arm} | {name} | {series} | {_pct(c['hold_rate_right_under_wrong_challenge'])} | "
+                f"| {arm} | {name} | {series} | {told} | {_pct(c['hold_rate_right_under_wrong_challenge'])} | "
                 f"{_pct(c['change_rate_wrong_under_correct_challenge'])} |"
             )
     return lines

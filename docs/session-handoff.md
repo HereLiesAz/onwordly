@@ -26,9 +26,13 @@ Results in `experiments/000-onwordly-learner/RESULTS.md`: every register-reading
 
 Branch `claude/000-recurring-frames`: held-out frames revisited in a shuffled stream with gaps (`learner/recurring.py`), writes into a forked eval register (self + corrector fillers readable, verifier stored but not read, ledger frozen); per-visit solve/final/challenge metrics, learning curve, first-wrong-fixed. New arm `learner-first-visit` (revisits train the memory-reading passes only through the hold/change decision; solve loss from an extra empty-register pass). Manifests `recurring-manifest.json` (no-memory, memory-dropout, first-visit, plain, handcoded) and `recurring-smoke-manifest.json`. Pre-registered reading in the 000 README, "Recurring frames". Estimate ~40–50 min on one T4.
 
+## Childhood arm + memory-source ablation (prepared, not run)
+
+Branch `claude/000-child-arms` (run 3 results are on PR #35, branch `claude/elegant-ritchie-d75ukh`). New arm `learner-child` (memory-dropout with self-trust input zeroed, flat update weighting, register reads only corrector fillers). Eval-time memory-source ablation on the recurring stream (`recurring_source_ablation`): `learner-memory-dropout[self]` / `[correctors]` rows next to the normal (both) row, no retraining. `recurring-manifest.json` now: no-memory, memory-dropout, child, plain, handcoded; `learner-first-visit` dropped (broken by design, code kept). Pre-registered reading in the 000 README, "Childhood arm and memory-source ablation". Estimate ~45–55 min on one T4.
+
 ## Next actions
 
-1. Run the recurring-frame evaluation by hand on Kaggle: `.kaggle-run` = `experiment: 000`, `mode: single`, `manifest: experiments/000-onwordly-learner/recurring-manifest.json`; record against the README's pre-registered reading. If no memory arm beats no-memory's curve, go to similarity-based recall.
+1. Run 4 by hand on Kaggle from `claude/000-child-arms` (after PR #35 is merged or alongside): `.kaggle-run` = `experiment: 000`, `mode: single`, `manifest: experiments/000-onwordly-learner/recurring-manifest.json`; record against the README's "Childhood arm and memory-source ablation" reading (child behaviour; correctors-only vs self-only vs both).
 2. Run 17 (verdict prior), if still wanted: by hand from `archive/llm-phase`. Run 18 (000 smoke) is superseded by the full run.
 3. Run 000 single with the full manifest; record the provisional reading against the pre-registered criteria.
 4. Seeds (≥ 3) before attributing any effect to a component.

@@ -12,7 +12,8 @@ ARMS: tuple[str, ...] = (
     "learner-no-trust",  # baseline 4: trust read zeroed
     "learner-self-memory",  # diagnostic: register read limited to source="self" fillers
     "learner-memory-dropout",  # diagnostic: training register read replaced by empty with prob memory_dropout
-    "learner-first-visit",  # remedy: on revisited training frames only the hold/change decision trains the memory-reading passes
+    "learner-first-visit",  # remedy (broken by design, run 3: decision untrained without memory); code kept, not in manifests
+    "learner-child",  # childhood: memory-dropout with no self-trust input, flat weighting, reads only corrector fillers
     "plain",  # baseline 1: one-pass MLP, standard supervised loss, matched parameters
     "handcoded",  # baseline 5: aive-style hold/change rule on top of "plain"
 )
@@ -62,6 +63,12 @@ class LearnerManifest:
     recurring_frames: int = 500
     recurring_visits: int = 4
     recurring_min_gap: int = 25
+    # Eval-time memory-source ablation on the recurring stream (no retraining):
+    # for each listed arm, the stream is rerun with eval-register reads limited
+    # to each of these sources ("self", "correctors", "all") other than the
+    # arm's own, reported as rows "<arm>[<sources>]".
+    recurring_source_ablation: tuple[str, ...] = ()
+    recurring_ablation_sources: tuple[str, ...] = ("self", "correctors", "all")
     arms: tuple[str, ...] = field(default=ARMS)
 
     @property
@@ -72,7 +79,7 @@ class LearnerManifest:
     @classmethod
     def from_json(cls, path: str | Path) -> "LearnerManifest":
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        for key in ("lengths", "alphabet", "trust_prior", "arms"):
+        for key in ("lengths", "alphabet", "trust_prior", "arms", "recurring_source_ablation", "recurring_ablation_sources"):
             if key in payload:
                 payload[key] = tuple(payload[key])
         if "correctors" in payload:
@@ -111,6 +118,10 @@ class LearnerManifest:
                 raise ValueError("recurring_visits must be 0 or >= 2; recurring_frames and recurring_min_gap positive")
             if self.recurring_frames > self.eval_size or 2 * self.recurring_min_gap > self.recurring_frames:
                 raise ValueError("need recurring_frames <= eval_size and 2 * recurring_min_gap <= recurring_frames")
+        if set(self.recurring_source_ablation) - set(self.arms):
+            raise ValueError("recurring_source_ablation arms must be in arms")
+        if set(self.recurring_ablation_sources) - {"self", "correctors", "all"}:
+            raise ValueError("recurring_ablation_sources must be chosen from self, correctors, all")
         if set(self.arms) - set(ARMS) or not self.arms:
             raise ValueError(f"arms must be chosen from {ARMS}")
         if "handcoded" in self.arms and "plain" not in self.arms:
