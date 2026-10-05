@@ -4,13 +4,13 @@
 
 - Clean slate. Onwordly is now the earned-trust / conscious-judgment / add-only-memory learner (`docs/model-design.md`). Work starts at Experiment 000.
 - The LLM phase (Experiments 001–011, reports, notes, scripts) is archived on branch `archive/llm-phase` (commit `c35b185`). Findings: `docs/findings-llm-phase.md`.
-- **Pending run:** Kaggle run 17 (verdict prior diagnostic, `experiment: prior`, Qwen2.5-0.5B and -Instruct, n = 200) was dispatched from main at `c35b185`. Results pending. That code exists only on the archive branch; record its outcome in `docs/findings-llm-phase.md` when it arrives.
-- **Pending run:** Kaggle run 18 (Experiment 000 smoke manifest) dispatched from main at `b2c163d`. Results pending; inspect before the full run.
+- **Run 17 (verdict prior) never ran.** The `.kaggle-run` change merged at `c35b185`, but the Kaggle hand-off workflow (and CI) has been `disabled_manually` since 2026-10-01, so nothing was dispatched. Its code exists only on `archive/llm-phase`.
+- **Experiment 000 first full run (by hand on Kaggle, one seed):** memory-reading arms collapsed (≤ 0.7% solve); learner-no-memory reached 75.3% solve and showed earned-trust behaviour (hold tracks corrector reliability by 0.488; post-challenge accuracy 86.9–97.8% vs plain 80.2%). Suspected cause: register acts as a train-time answer channel. See `experiments/000-onwordly-learner/RESULTS.md`.
 - Memory design in `docs/model-design.md` now covers consolidation-as-rewrite, deliberation-resolved contrasts, the S-curve size budget, time ranges, the top-down summary tree and pair summaries. The aive implementation of the lineage-bank memory merged as HereLiesAz/aive#449 and #450; the aive summary tree is not built yet.
 
 ## Experiment 000
 
-Prepared and CPU-tested (tiny end-to-end run in `tests/learner/`); no full run. Question, arms, matched budget, evaluation, pre-registered reading, risks and runtime estimate: `experiments/000-onwordly-learner/README.md`. Code: `src/onwordly/learner/`, `src/onwordly/memory/`.
+One full run recorded (`RESULTS.md`); diagnostics merged. Question, arms, matched budget, evaluation, pre-registered reading, risks and runtime estimate: `experiments/000-onwordly-learner/README.md`. Code: `src/onwordly/learner/`, `src/onwordly/memory/`.
 
 ## Execution
 
@@ -20,14 +20,12 @@ Prepared and CPU-tested (tiny end-to-end run in `tests/learner/`); no full run. 
 
 ## Experiment 000 first full run (one seed)
 
-Results on branch `claude/elegant-ritchie-d75ukh` (`experiments/000-onwordly-learner/RESULTS.md`): every register-reading arm collapsed (≤ 0.7% held-out solve); `learner-no-memory` 75.3% with earned-trust behaviour. Hypothesis: register is a train-time answer channel. Diagnostics built on `claude/000-memory-diagnostics` (training-frame probe, held-out second visit, `learner-self-memory`, `learner-memory-dropout`; see the 000 README "Memory diagnostics").
+Results in `experiments/000-onwordly-learner/RESULTS.md`: every register-reading arm collapsed (≤ 0.7% held-out solve); `learner-no-memory` 75.3% with earned-trust behaviour. Hypothesis: register is a train-time answer channel. Diagnostics merged (training-frame probe, held-out second visit, `learner-self-memory`, `learner-memory-dropout`; see the 000 README "Memory diagnostics").
 
 ## Next actions
 
-0. Run 000 with the diagnostic arms (`arms: learner,learner-no-memory,learner-self-memory,learner-memory-dropout`, ~2–2.5 h on T4) and read it against the pre-registered memory-diagnostics criteria before changing the memory design.
-
-1. Collect run 17 results; record them in `docs/findings-llm-phase.md`.
-2. Inspect run 18 (000 smoke).
+1. Run 000 with the diagnostic arms (`arms: learner,learner-no-memory,learner-self-memory,learner-memory-dropout`) by hand on Kaggle (the hand-off workflow is disabled), and read it against the pre-registered memory-diagnostics criteria before changing the memory design.
+2. Run 17 (verdict prior), if still wanted: by hand from `archive/llm-phase`. Run 18 (000 smoke) is superseded by the full run.
 3. Run 000 single with the full manifest; record the provisional reading against the pre-registered criteria.
 4. Seeds (≥ 3) before attributing any effect to a component.
 5. Move CI to the central controller; decide whether CI should install CPU torch so learner tests run there.
