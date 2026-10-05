@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from onwordly.training.challenge_episodes import render_challenge_lines
+
 
 def _pct(value: float | int | None) -> str:
     if value is None:
@@ -264,6 +266,16 @@ def render_single_run(summary: dict[str, Any]) -> str:
                         f"{stats['groups_skipped_equal_rewards']} | {stats['sample_generation_calls']} | "
                         f"{stats['samples_correct']} | {stats['weighted_updates']} | {stats['update_tokens']} |"
                     )
+
+    lines.extend(
+        render_challenge_lines(
+            [
+                (name, summary["regimes"][name]["challenge_evaluation"])
+                for name in _regime_order(summary)
+                if summary["regimes"][name].get("challenge_evaluation")
+            ]
+        )
+    )
 
     lines.extend(
         [

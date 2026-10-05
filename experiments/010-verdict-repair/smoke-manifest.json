@@ -36,5 +36,6 @@
   "verdict_rate": 0.3,
   "dense_verdict_rate": 1.0,
   "rl_samples": 4,
-  "rl_temperature": 1.0
+  "rl_temperature": 1.0,
+  "challenge_error_rate": 0.3
 }

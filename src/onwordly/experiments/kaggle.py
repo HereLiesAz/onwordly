@@ -62,6 +62,9 @@ VERDICT_REPAIR_REGIMES: tuple[str, ...] = (
     "verdict-rl",
     "verdict-rl-graded",
     "selfcheck-rl-binary",
+    # Fallible-challenge test of earned self-trust (on-policy, graded) and its SFT control.
+    "challenge-rl-graded",
+    "challenge-sft",
 )
 
 # Experiment 009: static reference, two verdict arms, and 008's synthetic

@@ -6,7 +6,10 @@ Arms (identical model, data, seed and training-token budget):
   (``right`` / ``wrong: <witness>``) on synthetic rule violations;
 - ``selfcheck-rl-binary`` / ``selfcheck-rl-graded``: the same stream plus
   on-policy two-turn self-check episodes (produce, judge own, keep or repair),
-  rewarded binary or graded (``training/constrained_sources.py``).
+  rewarded binary or graded (``training/constrained_sources.py``);
+- ``challenge-rl-graded``: the same stream plus on-policy fallible-challenge
+  episodes (answer, then hold or change under a challenger that is wrong with
+  probability ``challenge_error_rate``; ``training/challenge_episodes.py``).
 
 Regimes are independent; each writes ``<regime>.json`` with a fingerprint of
 manifest + code, and a rerun into the same directory resumes finished regimes.
@@ -35,6 +38,13 @@ from onwordly.training.constrained_sources import (
     StaticConstrainedSource,
     verify_constrained,
 )
+from onwordly.training.challenge_episodes import (
+    CONSTRAINED_CHALLENGE,
+    ChallengeEpisodeConfig,
+    ChallengeEpisodeSource,
+    evaluate_challenge,
+    render_challenge_lines,
+)
 from onwordly.training.harness import run_equal_token_training
 
 CONSTRAINED_VERDICT_REGIMES: tuple[str, ...] = (
@@ -42,6 +52,7 @@ CONSTRAINED_VERDICT_REGIMES: tuple[str, ...] = (
     "verdict-synthetic",
     "selfcheck-rl-binary",
     "selfcheck-rl-graded",
+    "challenge-rl-graded",
 )
 
 
@@ -68,6 +79,7 @@ class ConstrainedExperimentManifest:
     verdict_rate: float = 0.3
     rl_samples: int = 4
     rl_temperature: float = 1.0
+    challenge_error_rate: float = 0.3
 
     @classmethod
     def from_json(cls, path: str | Path) -> "ConstrainedExperimentManifest":
@@ -103,6 +115,8 @@ class ConstrainedExperimentManifest:
             raise ValueError("verdict_rate must be in (0, 1]")
         if self.rl_samples < 2 or self.rl_temperature <= 0.0:
             raise ValueError("rl_samples must be >= 2 and rl_temperature positive")
+        if not 0.0 <= self.challenge_error_rate < 1.0:
+            raise ValueError("challenge_error_rate must be in [0, 1)")
 
 
 def run_fingerprint(manifest: ConstrainedExperimentManifest) -> str:
@@ -125,6 +139,19 @@ def source_for_regime(regime: str, manifest: ConstrainedExperimentManifest, task
                 temperature=manifest.rl_temperature,
             ),
             verdict_rate=manifest.verdict_rate,
+            seed=manifest.training_seed,
+        )
+    if regime == "challenge-rl-graded":
+        return ChallengeEpisodeSource(
+            StaticConstrainedSource(tasks),
+            base_type=ConstrainedStringTask,
+            config=ChallengeEpisodeConfig(
+                domain=CONSTRAINED_CHALLENGE,
+                error_rate=manifest.challenge_error_rate,
+                samples=manifest.rl_samples,
+                temperature=manifest.rl_temperature,
+            ),
+            rate=manifest.verdict_rate,
             seed=manifest.training_seed,
         )
     raise ValueError(f"unknown constrained-string regime: {regime}")
@@ -234,9 +261,16 @@ def run_constrained_experiment(
         verdict = evaluate_constrained_verdict(
             adapter, heldout[: manifest.verdict_evaluation_size], seed=manifest.evaluation_seed
         )
+        challenge = None
+        if regime.startswith("challenge-"):
+            challenge = evaluate_challenge(
+                adapter, heldout[: manifest.verdict_evaluation_size],
+                domain=CONSTRAINED_CHALLENGE, seed=manifest.evaluation_seed,
+            )
         _call(adapter, "synchronize")
         final_seconds = perf_counter() - started
         final_calls = len(heldout) + len(longer) + int(verdict["generation_calls"])
+        final_calls += int(challenge["generation_calls"]) if challenge else 0
         regime_result = {
             "model": {
                 "parameter_count": getattr(adapter, "parameter_count", None),
@@ -247,6 +281,7 @@ def run_constrained_experiment(
             "tasks_queued": getattr(source, "queued", None),
             "evaluation": {"heldout": heldout_result, "longer": longer_result},
             "verdict_evaluation": verdict,
+            **({"challenge_evaluation": challenge} if challenge else {}),
             "measurement_overhead": {
                 "checkpoint_generation_calls": checkpoint_calls,
                 "final_evaluation_generation_calls": final_calls,
@@ -307,6 +342,10 @@ def render_constrained_result(summary_path: str | Path) -> str:
                 f"| {name} | {stats['groups']} | {stats['groups_trained']} | {stats['groups_skipped_equal_rewards']} | "
                 f"{stats['sample_generation_calls']} | {json.dumps(stats['reward_tiers'], sort_keys=True)} |"
             )
+    lines += render_challenge_lines(
+        [(n, summary["regimes"][n]["challenge_evaluation"]) for n in summary["regime_order"]
+         if summary["regimes"][n].get("challenge_evaluation")]
+    )
     return "\n".join(lines) + "\n"
 
 

@@ -291,7 +291,7 @@ def test_verdict_repair_regimes_run_and_report(tmp_path: Path) -> None:
     regimes = result["regimes"]
     assert regimes["solve-judge-synthetic"]["verdict_evaluation"]["format"] == "solve-judge"
     assert regimes["verdict-dense"]["verdict_evaluation"]["format"] == "verdict"
-    rl_arms = ("verdict-rl", "verdict-rl-graded", "selfcheck-rl-binary")
+    rl_arms = ("verdict-rl", "verdict-rl-graded", "selfcheck-rl-binary", "challenge-rl-graded")
     assert all("on_policy" in regimes[name]["training"] for name in rl_arms)
     assert all("on_policy" not in regimes[name]["training"] for name in VERDICT_REPAIR_REGIMES if name not in rl_arms)
     assert set(regimes["verdict-rl"]["training"]["on_policy"]["reward_tiers"]) <= {"correct", "incorrect"}
@@ -299,7 +299,12 @@ def test_verdict_repair_regimes_run_and_report(tmp_path: Path) -> None:
         assert regimes[name]["training"]["training_tokens"] <= manifest.token_budget
     queued = {name: sum(regimes[name]["corrective_tasks_queued"].values()) for name in ("verdict-synthetic", "verdict-dense")}
     assert queued["verdict-dense"] > queued["verdict-synthetic"]
+    for name in ("challenge-rl-graded", "challenge-sft"):
+        assert set(regimes[name]["challenge_evaluation"]["by_error_rate"]) == {"0", "0.3", "0.5"}
+    assert all("challenge_evaluation" not in regimes[n] for n in VERDICT_REPAIR_REGIMES if not n.startswith("challenge-"))
+    assert sum(regimes["challenge-sft"]["corrective_tasks_queued"].values()) > 0
     report = render_result(tmp_path / "summary.json")
+    assert "Fallible challenge" in report
     assert "Wrong caught + repaired" in report and "On-policy verdict updates" in report
 
 
@@ -324,7 +329,7 @@ def test_kaggle_plan_for_010(tmp_path: Path) -> None:
     assert {unit[1] for unit in units} == {str(tmp_path / "010-verdict-repair")}
     assert VERDICT_REPAIR_REGIMES == (
         "static", "verdict-synthetic", "verdict-dense", "solve-judge-synthetic", "verdict-rl", "verdict-rl-graded",
-        "selfcheck-rl-binary",
+        "selfcheck-rl-binary", "challenge-rl-graded", "challenge-sft",
     )
 
 
@@ -335,7 +340,7 @@ def test_010_manifest_is_009_plus_new_fields() -> None:
         old = json.loads(Path(f"experiments/009-verdict-language-game/{name}").read_text())
         new = json.loads(Path(f"experiments/010-verdict-repair/{name}").read_text())
         assert {key: new[key] for key in old} == old
-        assert set(new) - set(old) == {"dense_verdict_rate", "rl_samples", "rl_temperature"}
+        assert set(new) - set(old) == {"dense_verdict_rate", "rl_samples", "rl_temperature", "challenge_error_rate"}
 
 
 def test_hf_adapter_sample_and_weighted_update_with_lora() -> None:

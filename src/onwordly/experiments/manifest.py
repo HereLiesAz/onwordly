@@ -44,6 +44,9 @@ class ArithmeticExperimentManifest:
     dense_verdict_rate: float = 1.0
     rl_samples: int = 4
     rl_temperature: float = 1.0
+    # Experiment 010 challenge arms: probability that the fallible
+    # challenger's claim is wrong during training.
+    challenge_error_rate: float = 0.3
     # Optional LoRA config (r, alpha, dropout, target_modules). None = full fine-tuning.
     lora: dict[str, object] | None = None
 
@@ -75,6 +78,8 @@ class ArithmeticExperimentManifest:
             raise ValueError("rl_samples must be at least 2")
         if self.rl_temperature <= 0.0:
             raise ValueError("rl_temperature must be positive")
+        if not 0.0 <= self.challenge_error_rate < 1.0:
+            raise ValueError("challenge_error_rate must be in [0, 1)")
         if not 0.0 <= self.confirm_probability <= 1.0:
             raise ValueError("confirm_probability must be in [0, 1]")
         if not 0 <= self.format_warmup_tokens < self.token_budget:

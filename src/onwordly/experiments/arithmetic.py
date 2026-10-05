@@ -24,6 +24,13 @@ from onwordly.training.corrective_sources import CorrectiveArithmeticSource
 from onwordly.training.harness import OnPolicyConfig, run_equal_token_training
 from onwordly.training.verdict_evaluation import evaluate_verdict
 from onwordly.training.selfcheck_episodes import SelfCheckEpisodeConfig
+from onwordly.training.challenge_episodes import (
+    ARITHMETIC_CHALLENGE,
+    ChallengeEpisodeConfig,
+    ChallengeEpisodeSource,
+    ChallengeSFTSource,
+    evaluate_challenge,
+)
 from onwordly.training.verdict_sources import SelfCheckEpisodeSource, VerdictArithmeticSource
 from onwordly.tasks.solve_judge import make_solve_judge_task
 from onwordly.tasks.verdict import verify_task
@@ -202,6 +209,30 @@ def _source_for_regime(
                 temperature=manifest.rl_temperature,
             ),
             verdict_rate=manifest.verdict_rate,
+            seed=manifest.training_seed,
+        )
+    if regime == "challenge-rl-graded":
+        # Fallible-challenge episodes: answer, then hold or change under a
+        # challenger that errs with probability challenge_error_rate.
+        return ChallengeEpisodeSource(
+            StaticArithmeticSource(static_tasks),
+            base_type=ArithmeticTask,
+            config=ChallengeEpisodeConfig(
+                domain=ARITHMETIC_CHALLENGE,
+                error_rate=manifest.challenge_error_rate,
+                samples=manifest.rl_samples,
+                temperature=manifest.rl_temperature,
+            ),
+            rate=manifest.verdict_rate,
+            seed=manifest.training_seed,
+        )
+    if regime == "challenge-sft":
+        return ChallengeSFTSource(
+            StaticArithmeticSource(static_tasks),
+            base_type=ArithmeticTask,
+            domain=ARITHMETIC_CHALLENGE,
+            error_rate=manifest.challenge_error_rate,
+            rate=manifest.verdict_rate,
             seed=manifest.training_seed,
         )
     if regime == "error-focused-uniform":
@@ -416,6 +447,14 @@ def run_experiment(
                 # Each arm is judged in the format it was trained on.
                 format="solve-judge" if regime_name == "solve-judge-synthetic" else "verdict",
             )
+        challenge = None
+        if regime_name.startswith("challenge-") and manifest.verdict_evaluation_size:
+            challenge = evaluate_challenge(
+                adapter,
+                heldout_tasks[: manifest.verdict_evaluation_size],
+                domain=ARITHMETIC_CHALLENGE,
+                seed=manifest.evaluation_seed,
+            )
         _synchronize_adapter(adapter)
         final_evaluation_seconds = perf_counter() - started
         final_evaluation_calls = (
@@ -425,6 +464,7 @@ def run_experiment(
             + len(out_of_range_tasks)
             + (int(corrective["generation_calls"]) if corrective else 0)
             + (int(verdict["generation_calls"]) if verdict else 0)
+            + (int(challenge["generation_calls"]) if challenge else 0)
         )
         total_evaluation_calls = checkpoint_generation_calls + final_evaluation_calls
 
@@ -448,6 +488,7 @@ def run_experiment(
             "corrective_evaluation": corrective,
             "corrective_tasks_queued": getattr(source, "queued", None),
             "verdict_evaluation": verdict,
+            **({"challenge_evaluation": challenge} if challenge else {}),
             "evaluation": _serialize_evaluations(
                 heldout,
                 prompt_transfer,

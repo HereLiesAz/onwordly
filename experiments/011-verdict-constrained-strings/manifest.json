@@ -36,5 +36,6 @@
   "holdout_modulus": 5,
   "verdict_rate": 0.3,
   "rl_samples": 4,
-  "rl_temperature": 1.0
+  "rl_temperature": 1.0,
+  "challenge_error_rate": 0.3
 }

@@ -143,8 +143,15 @@ class StringAdapter:
     def _task(self, prompt: str):
         return self.tasks[prompt.split(" A proposed string")[0]]
 
+    def _challenge(self, prompt: str) -> str:
+        task = self.tasks[prompt.split(" Your answer was ")[0]]
+        first = prompt.split(" Your answer was ")[1].split(". ")[0]
+        return f"hold: {first}" if satisfies_all(task, first) else f"change: {task.witness}"
+
     def generate(self, prompt: str) -> str:
         self.greedy.append(prompt)
+        if " Your answer was " in prompt:
+            return self._challenge(prompt)
         if " A proposed string is " in prompt:
             task = self._task(prompt)
             shown = prompt.split(" A proposed string is ")[1].split(". If")[0]
@@ -161,6 +168,8 @@ class StringAdapter:
         return TrainStepMetrics(loss=1.0, tokens=self.count_training_tokens(prompt, target))
 
     def sample(self, prompt: str, n: int, temperature: float) -> list[str]:
+        if " Your answer was " in prompt:
+            return [self._challenge(prompt)] * n
         if " A proposed string is " in prompt:
             task = self._task(prompt)
             shown = prompt.split(" A proposed string is ")[1].split(". If")[0]
@@ -275,12 +284,15 @@ def test_runner_all_arms_matched_budget_and_report(tmp_path: Path) -> None:
         assert "mean_final_satisfaction" in regimes[name]["verdict_evaluation"]["self_check"]
     assert "on_policy" in regimes["selfcheck-rl-graded"]["training"]
     assert "on_policy" not in regimes["static"]["training"]
+    assert regimes["challenge-rl-graded"]["challenge_evaluation"]["by_error_rate"]["0.3"]["final_accuracy"] >= 0
+    assert "challenge_evaluation" not in regimes["selfcheck-rl-graded"]
     assert sum(regimes["verdict-synthetic"]["tasks_queued"].values()) > 0
     # Resume: rerun loads saved regimes without creating adapters.
     count = len(adapters)
     run_constrained_experiment(manifest, output_dir=tmp_path, create_adapter=factory)
     assert len(adapters) == count
     report = render_constrained_result(tmp_path / "summary.json")
+    assert "Fallible challenge" in report
     assert "Mean s(final)" in report and "selfcheck-rl-binary" in report and "On-policy" in report
     # Held-out rule sets never appear in training data.
     train_rules = {json.dumps(json.loads(l)["rules"]) for l in (tmp_path / "static-train.jsonl").read_text().splitlines()}
