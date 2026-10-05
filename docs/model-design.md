@@ -1,6 +1,6 @@
 # Model design — earned trust, conscious judgment, add-only memory
 
-Status: design, built as Experiment 000 (`experiments/000-onwordly-learner/`); nothing claimed. Components are established (see "Prior art"); the combination is the hypothesis.
+Status: design, built as Experiment 000 (`experiments/000-onwordly-learner/`); nothing claimed. The ideas here were developed independently; "Related work" lists parallels found afterwards, for anyone comparing, not as sources.
 
 ## Why
 
@@ -22,7 +22,7 @@ Consolidation is rewriting: the current memory is replaced by a consolidated ver
 
 Each current memory has a size budget (not the store as a whole): every rewrite must be smaller than the version before it, following an S-curve from the original size down to a floor that is a fixed fraction of the original — very little loss early in the memory's life and near the floor, the steepest loss just past the middle. When memories combine (consolidation, a resolved contradiction, new information folded in), the curve is re-based from every contributor, the newest included: the ceiling is the average of the new memory's size and the summary-so-far's size, weighted by each one's weight (use, recency, salience, deliberation citations); the floor is the same fraction of that ceiling; the life position is the same weighted average — so both sides of a contradiction shape the result. The rewrite still never reaches the size of the version before it. A memory never grows; new information that does not fit becomes a separate, linked memory. Each rewrite is degradation by summary, weighted so that detail that is used often, recently, salient, or cited by deliberations survives and rarely used detail compresses first. Higher levels of the summary tree get tighter budgets — gist toward the root. The full pre-summary version becomes history.
 
-Time follows the same path: a raw memory keeps its exact timestamp; once consolidated, its current version carries a time range spanning its sources, widening with each consolidation, together with its weight — how many times it happened within that range. How long raw history is kept is the user's decision, not assumed; consolidated memory never depends on raw history surviving. Exact events remain available in history — a flaw of human memory deliberately not copied — while the compression that makes routine forgettable and the unusual memorable is kept. Borrowed from systems consolidation, trace transformation and reconsolidation (Nadel & Moscovitch†; Nader et al. 2000†).
+Time follows the same path: a raw memory keeps its exact timestamp; once consolidated, its current version carries a time range spanning its sources, widening with each consolidation, together with its weight — how many times it happened within that range. How long raw history is kept is the user's decision, not assumed; consolidated memory never depends on raw history surviving. Exact events remain available in history — a flaw of human memory deliberately not copied — while the compression that makes routine forgettable and the unusual memorable is kept.
 
 ## Components
 
@@ -63,11 +63,11 @@ Assessed against aive (`HereLiesAz/aive`, docs/Memory-layer.md and docs/architec
 2. **Explicit trust state on the existing model** (not pursued): superseded by step 3; the aive-style hand-coded rule survives as the `handcoded` baseline.
 3. **From-scratch construction = Experiment 000** (current): episode store + variant register + reasoner + trust ledger as model components; confidence × surprise update weighting. Baselines: parameter-matched plain network; hand-coded trust rule; ablations of memory, trust and update rule.
 
-## Borrow map
+## Implementation options
 
-Borrow wherever possible. † = from memory, verify before citing.
+Existing tools and techniques that could implement each component, where reuse saves building. † = from memory, verify before citing.
 
-| Component | Borrow from |
+| Component | Could be implemented with |
 | --- | --- |
 | Add-only episode store | Event sourcing / append-only logs; immutable databases (Datomic†, XTDB†) |
 | Two clocks (record time, event time) | Bitemporal data modelling (SQL:2011 temporal tables); Zep/Graphiti bi-temporal knowledge graph† |
@@ -84,6 +84,8 @@ Borrow wherever possible. † = from memory, verify before citing.
 
 What is left to build is the wiring between these, under exact verification and matched budgets.
 
-## Prior art (not ours)
+## Related work
+
+Parallels found after the fact. Listed so any public novelty claim can be checked against them (AGENTS.md); not sources of the design.
 
 Predictive coding and precision-weighted prediction error; equilibrium propagation (Scellier & Bengio 2017); calibration and metacognitive confidence; annotator-reliability models (Dawid–Skene); confidence-weighted and focal losses; sycophancy and challenge robustness (Sharma et al. arXiv:2310.13548; FlipFlop arXiv:2311.08596); reward shaping and improvement bonuses (SCoRe arXiv:2409.12917); noisy-OR evidence accumulation; Hebbian association. A related-work search is required before any component or the combination is called novel.
