@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from onwordly.training.challenge_episodes import render_challenge_lines
+
 
 def _pct(value: float | int | None) -> str:
     if value is None:
@@ -202,6 +204,78 @@ def render_single_run(summary: dict[str, Any]) -> str:
                 f"{_pct(check['first_pass_accuracy'])} | {_pct(check['final_accuracy'])} | "
                 f"{check['fixed']} | {check['broken']} | {queued_text} |"
             )
+        counted = [(name, row) for name, row, _ in verdict_rows if row and "class_counts" in row]
+        if counted:
+            lines.extend(
+                [
+                    "",
+                    "Per-class counts on shown proposals (format = reply format the arm was evaluated in;",
+                    "solve-judge right-kept counts the verdict alone, with-answer rate in brackets).",
+                    "",
+                    "| Regime | Format | Right kept | Right rejected | Right unparseable | Wrong caught + repaired | Wrong caught + misrepaired | Wrong accepted | Wrong unparseable |",
+                    "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+                ]
+            )
+            for name, row in counted:
+                c = row["class_counts"]
+                kept = str(c["right_kept"])
+                if "right_shown_with_answer_accuracy" in row:
+                    kept += f" ({_pct(row['right_shown_with_answer_accuracy'])})"
+                lines.append(
+                    f"| {name} | {row.get('format', 'verdict')} | {kept} | {c['right_rejected']} | "
+                    f"{c['right_unparseable']} | {c['wrong_caught_repaired']} | "
+                    f"{c['wrong_caught_misrepaired']} | {c['wrong_accepted']} | {c['wrong_unparseable']} |"
+                )
+            lines.extend(
+                [
+                    "",
+                    "Self-check per-class counts (the model's own first answers).",
+                    "",
+                    "| Regime | Own right kept | Own right rejected | Own wrong caught + repaired | Own wrong caught + misrepaired | Own wrong accepted | Unparseable verdict | Unparseable first pass |",
+                    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+                ]
+            )
+            for name, row in counted:
+                c = row["self_check"]["class_counts"]
+                lines.append(
+                    f"| {name} | {c['own_right_kept']} | {c['own_right_rejected']} | "
+                    f"{c['own_wrong_caught_repaired']} | {c['own_wrong_caught_misrepaired']} | "
+                    f"{c['own_wrong_accepted']} | "
+                    f"{c['own_right_unparseable_verdict'] + c['own_wrong_unparseable_verdict']} | "
+                    f"{c['unparseable_first_pass']} |"
+                )
+        on_policy = [
+            (name, summary["regimes"][name]["training"].get("on_policy"))
+            for name in _regime_order(summary)
+        ]
+        if any(stats for _, stats in on_policy):
+            lines.extend(
+                [
+                    "",
+                    "On-policy verdict updates (REINFORCE, group-mean baseline). Sampling calls are",
+                    "included in total generation calls; update tokens are inside the training budget.",
+                    "",
+                    "| Regime | Groups | Trained | Skipped (equal rewards) | Sample calls | Samples correct | Weighted updates | Update tokens |",
+                    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+                ]
+            )
+            for name, stats in on_policy:
+                if stats:
+                    lines.append(
+                        f"| {name} | {stats['groups']} | {stats['groups_trained']} | "
+                        f"{stats['groups_skipped_equal_rewards']} | {stats['sample_generation_calls']} | "
+                        f"{stats['samples_correct']} | {stats['weighted_updates']} | {stats['update_tokens']} |"
+                    )
+
+    lines.extend(
+        render_challenge_lines(
+            [
+                (name, summary["regimes"][name]["challenge_evaluation"])
+                for name in _regime_order(summary)
+                if summary["regimes"][name].get("challenge_evaluation")
+            ]
+        )
+    )
 
     lines.extend(
         [
