@@ -5,40 +5,20 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "onwordly"
 version = "0.1.0"
-description = "Experiments in data-efficient training for small language models"
+description = "A small learner with earned trust, conscious judgment and add-only memory"
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
 dev = ["pytest>=8"]
 train = [
-  "torch>=2.2",
-  "transformers>=4.45,<6",
-  "peft>=0.13"
+  "torch>=2.2"
 ]
 
 [project.scripts]
-onwordly-arithmetic = "onwordly.experiments.arithmetic:main"
-onwordly-arithmetic-suite = "onwordly.experiments.suite:main"
-onwordly-arithmetic-ablation = "onwordly.experiments.ablation:main"
-onwordly-arithmetic-report = "onwordly.reporting.arithmetic:main"
-onwordly-symbolic = "onwordly.experiments.symbolic:main"
-onwordly-symbolic-suite = "onwordly.experiments.symbolic_suite:main"
-onwordly-symbolic-report = "onwordly.reporting.symbolic:main"
-onwordly-string = "onwordly.experiments.string_manipulation:main"
-onwordly-string-suite = "onwordly.experiments.string_suite:main"
-onwordly-string-report = "onwordly.reporting.string_manipulation:main"
-onwordly-program = "onwordly.experiments.program_execution:main"
-onwordly-program-suite = "onwordly.experiments.program_suite:main"
-onwordly-process-supervision = "onwordly.experiments.process_supervision:main"
-onwordly-process-supervision-report = "onwordly.reporting.process_supervision:main"
-onwordly-program-report = "onwordly.reporting.program_execution:main"
-onwordly-logic = "onwordly.experiments.formal_logic:main"
-onwordly-logic-suite = "onwordly.experiments.logic_suite:main"
-onwordly-logic-report = "onwordly.reporting.formal_logic:main"
-onwordly-kaggle = "onwordly.experiments.kaggle:main"
-onwordly-audit = "onwordly.diagnostics.audit:main"
-onwordly-baseline = "onwordly.diagnostics.baseline:main"
+onwordly-kaggle = "onwordly.learner.kaggle:main"
+onwordly-learner = "onwordly.learner.experiment:main"
+onwordly-learner-kaggle = "onwordly.learner.kaggle:main"
 onwordly-publish = "onwordly.publish:main"
 
 [tool.setuptools.packages.find]
