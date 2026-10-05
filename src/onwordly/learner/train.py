@@ -45,7 +45,7 @@ from onwordly.learner.task import (
     is_right,
     satisfaction,
 )
-from onwordly.memory import normalize_weights, update_weight
+from onwordly.memory import frame_for, normalize_weights, update_weight
 
 DRAFT_LOGIT_SCALE = 4.0  # challenge pass starts from the draft as confident one-hot logits
 EVAL_BATCH = 256
@@ -56,6 +56,8 @@ class LearnerVariant:
     weighting: str = "confidence_surprise"
     use_memory: bool = True
     use_trust: bool = True
+    register_sources: str = "all"  # "self": read only the model's own fillers
+    memory_dropout: bool = False  # training reads emptied with prob manifest.memory_dropout
 
 
 VARIANTS: dict[str, LearnerVariant] = {
@@ -63,6 +65,8 @@ VARIANTS: dict[str, LearnerVariant] = {
     "learner-flat": LearnerVariant(weighting="flat"),
     "learner-no-memory": LearnerVariant(use_memory=False),
     "learner-no-trust": LearnerVariant(use_trust=False),
+    "learner-self-memory": LearnerVariant(register_sources="self"),
+    "learner-memory-dropout": LearnerVariant(memory_dropout=True),
 }
 
 
@@ -76,6 +80,11 @@ class TrainingLog:
     mean_weight_wrong: float | None = None
     mean_weight_right: float | None = None
     challenge_outcomes: dict[str, int] = field(default_factory=dict)
+    # Register diagnostics, solve-pass reads (before this visit's own writes).
+    register_reads: int = 0
+    register_nonempty: int = 0
+    register_top_other_is_target: int = 0
+    register_dropped: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -87,6 +96,13 @@ class TrainingLog:
             "mean_weight_final_wrong": self.mean_weight_wrong,
             "mean_weight_final_right": self.mean_weight_right,
             "challenge_outcomes": dict(sorted(self.challenge_outcomes.items())),
+            "register_diagnostics": {
+                "solve_reads": self.register_reads,
+                "nonempty_fraction": _rate(self.register_nonempty, self.register_reads),
+                "top_other_is_target_fraction": _rate(self.register_top_other_is_target, self.register_reads),
+                "dropped": self.register_dropped,
+                "dropped_fraction": _rate(self.register_dropped, self.register_reads),
+            },
         }
 
 
@@ -108,12 +124,19 @@ def _inputs(
     variant: LearnerVariant,
     challenges: Sequence[Challenge] | None,
     device: torch.device,
+    *,
+    empty: Sequence[bool] | bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    """``empty``: per-task (or global) override replacing the register read by
+    the empty-register encoding (dropout and the emptied-register probe)."""
     globals_, extras = [], []
     for index, task in enumerate(tasks):
         challenge = challenges[index] if challenges is not None else None
-        if variant.use_memory:
-            mem_g, mem_s = memory.read(task)
+        drop = empty if isinstance(empty, bool) else empty[index]
+        if variant.use_memory and drop:
+            mem_g, mem_s = memory.empty_read()
+        elif variant.use_memory:
+            mem_g, mem_s = memory.read(task, variant.register_sources)
         else:
             mem_g, mem_s = [0.0] * MEMORY_GLOBAL_DIM, [[0.0] * (2 * encoding.vocab)] * encoding.slots
         trust = memory.trust(task, challenge.corrector if challenge else None) if variant.use_trust else [0.0] * TRUST_DIM
@@ -155,6 +178,7 @@ def train_learner(
     memory = make_memory(manifest, encoding, f"train:{regime}")
     correctors = [Corrector(name, rate) for name, rate in manifest.correctors]
     task_rng, challenge_rng = Random(manifest.training_seed), Random(manifest.training_seed + 1)
+    dropout_rng = Random(manifest.training_seed + 2)  # separate stream: task/challenge order unchanged
     log = TrainingLog()
     losses: list[float] = []
     weights_wrong: list[float] = []
@@ -165,7 +189,17 @@ def train_learner(
     for _ in range(manifest.train_steps):
         tasks = [task_rng.choice(train_tasks) for _ in range(manifest.batch_size)]
         target = _targets(encoding, tasks, device)
-        g, x = _inputs(encoding, tasks, memory, variant, None, device)
+        dropped = [False] * len(tasks)
+        if variant.use_memory:
+            if variant.memory_dropout:
+                dropped = [dropout_rng.random() < manifest.memory_dropout for _ in tasks]
+            for task in tasks:
+                nonempty, top_other = memory.register_stats(task, variant.register_sources)
+                log.register_reads += 1
+                log.register_nonempty += nonempty
+                log.register_top_other_is_target += top_other is not None and is_right(task, top_other)
+            log.register_dropped += sum(dropped)
+        g, x = _inputs(encoding, tasks, memory, variant, None, device, empty=dropped)
         zeros = torch.zeros(len(tasks), encoding.slots, encoding.vocab, device=device)
         solve = model(g, x, zeros, steps)
         solve_ce = torch.stack([_ce(out.logits, target) for out in solve]).mean(0)
@@ -181,7 +215,7 @@ def train_learner(
             challenge = draw_challenge(task, draft, challenge_rng.choice(correctors), challenge_rng)
             challenges.append(challenge)
             links.append(memory.write_challenge(task, draft, challenge))
-        g2, x2 = _inputs(encoding, tasks, memory, variant, challenges, device)
+        g2, x2 = _inputs(encoding, tasks, memory, variant, challenges, device, empty=dropped)
         init = torch.tensor([encoding.onehot(d) for d in drafts], device=device) * DRAFT_LOGIT_SCALE
         reason = model(g2, x2, init, steps)
         hold_p = torch.sigmoid(reason[-1].hold_logit).clamp(1e-6, 1 - 1e-6)
@@ -333,15 +367,19 @@ def _rate(num: int, den: int) -> float | None:
 
 
 @torch.no_grad()
-def solve_learner(model: OnwordlyLearner, memory: LearnerMemory, variant: LearnerVariant, tasks: Sequence[ConstrainedTask], steps: int, device: torch.device):
-    """Per-task list of per-step answers and the final step's confidence."""
+def solve_learner(
+    model: OnwordlyLearner, memory: LearnerMemory, variant: LearnerVariant, tasks: Sequence[ConstrainedTask], steps: int,
+    device: torch.device, *, empty_register: bool = False,
+):
+    """Per-task list of per-step answers and the final step's confidence.
+    Reads only; ``empty_register`` feeds the empty-register encoding."""
     model.eval()
     encoding = model.encoding
     answers: list[list[str]] = []
     confidences: list[float] = []
     for start in range(0, len(tasks), EVAL_BATCH):
         chunk = tasks[start : start + EVAL_BATCH]
-        g, x = _inputs(encoding, chunk, memory, variant, None, device)
+        g, x = _inputs(encoding, chunk, memory, variant, None, device, empty=empty_register)
         outs = model(g, x, torch.zeros(len(chunk), encoding.slots, encoding.vocab, device=device), steps)
         per_step = [_decode_all(encoding, out.logits) for out in outs]
         answers += [list(row) for row in zip(*per_step)]
@@ -379,6 +417,67 @@ def solve_metrics(tasks: Sequence[ConstrainedTask], answers: Sequence[Sequence[s
         "first_to_last_fixes": sum(not r[0] and r[-1] for r in right),
         "first_to_last_breaks": sum(r[0] and not r[-1] for r in right),
         "confidence_calibration": calibration([(c, r[-1]) for c, r in zip(confidences, right)]),
+    }
+
+
+# --- memory diagnostics -----------------------------------------------------------
+
+
+def probe_sample(manifest: LearnerManifest, train_tasks: Sequence[ConstrainedTask]) -> list[ConstrainedTask]:
+    """Fixed sample of training problems for the register probe (same for every arm)."""
+    rng = Random(f"{manifest.evaluation_seed}:register-probe")
+    return rng.sample(list(train_tasks), min(manifest.probe_size, len(train_tasks)))
+
+
+def _accuracy(tasks: Sequence[ConstrainedTask], answers: Sequence[Sequence[str]]) -> float:
+    return sum(is_right(t, row[-1]) for t, row in zip(tasks, answers)) / len(tasks)
+
+
+def probe_training_frames(
+    model: OnwordlyLearner, memory: LearnerMemory, variant: LearnerVariant, tasks: Sequence[ConstrainedTask],
+    steps: int, device: torch.device,
+) -> dict[str, object]:
+    """Diagnostic 1: training frames, after training, eval mode, read-only on
+    an eval view. Accuracy with the register as built vs emptied."""
+    view = memory.eval_view("probe:train-frames")
+    stats = [view.register_stats(t, variant.register_sources) for t in tasks]
+    as_is, _ = solve_learner(model, view, variant, tasks, steps, device)
+    emptied, _ = solve_learner(model, view, variant, tasks, steps, device, empty_register=True)
+    acc, acc_empty = _accuracy(tasks, as_is), _accuracy(tasks, emptied)
+    return {
+        "examples": len(tasks),
+        "accuracy_register_as_is": acc,
+        "accuracy_register_emptied": acc_empty,
+        "drop_on_emptying": acc - acc_empty,
+        "register_nonempty_fraction": sum(n for n, _ in stats) / len(tasks),
+        "top_other_is_target_fraction": sum(o is not None and is_right(t, o) for t, (_, o) in zip(tasks, stats)) / len(tasks),
+        "view_records_written": len(view.store),
+    }
+
+
+def probe_second_visit(
+    model: OnwordlyLearner, memory: LearnerMemory, variant: LearnerVariant, tasks: Sequence[ConstrainedTask],
+    steps: int, device: torch.device,
+) -> dict[str, object]:
+    """Diagnostic 2: held-out frames visited twice. Attempt 1 reads the
+    (empty) register; only the model's own attempt-1 answer is written into a
+    forked eval register; attempt 2 reads it."""
+    view = memory.eval_view("probe:second-visit")
+    empty_first = sum(not view.register_stats(t, "all")[0] for t in tasks)
+    first, _ = solve_learner(model, view, variant, tasks, steps, device)
+    for task, row in zip(tasks, first):
+        view.write_self_filler(task, row[-1])
+    sources = sorted({e.source for t in tasks for e in view.register.entries(frame_for(t))})
+    second, _ = solve_learner(model, view, variant, tasks, steps, device)
+    a1, a2 = _accuracy(tasks, first), _accuracy(tasks, second)
+    return {
+        "examples": len(tasks),
+        "first_visit_empty_fraction": empty_first / len(tasks),
+        "accuracy_first_visit": a1,
+        "accuracy_second_visit": a2,
+        "second_minus_first": a2 - a1,
+        "second_visit_register_sources": sources,
+        "changed_answers": sum(f[-1] != s[-1] for f, s in zip(first, second)),
     }
 
 
