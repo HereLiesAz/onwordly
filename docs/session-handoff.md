@@ -32,7 +32,7 @@ Branch `claude/000-child-arms` (run 3 results are on PR #35, branch `claude/eleg
 
 ## Next actions
 
-1. Run 4 by hand on Kaggle from `claude/000-child-arms` (after PR #35 is merged or alongside): `.kaggle-run` = `experiment: 000`, `mode: single`, `manifest: experiments/000-onwordly-learner/recurring-manifest.json`; record against the README's "Childhood arm and memory-source ablation" reading (child behaviour; correctors-only vs self-only vs both).
+1. Run 4 by hand on Kaggle from `main`: `.kaggle-run` = `experiment: 000`, `mode: single`, `manifest: experiments/000-onwordly-learner/recurring-manifest.json`; record against the README's "Childhood arm and memory-source ablation" reading (child behaviour; correctors-only vs self-only vs both).
 2. Run 17 (verdict prior), if still wanted: by hand from `archive/llm-phase`. Run 18 (000 smoke) is superseded by the full run.
 3. Run 000 single with the full manifest; record the provisional reading against the pre-registered criteria.
 4. Seeds (≥ 3) before attributing any effect to a component.
