@@ -91,7 +91,8 @@ passes per problem, the plain net 1.
 | `learner-no-trust` | ledger read zeroed |
 | `learner-self-memory` | diagnostic: register read uses only `source="self"` fillers (no corrector proposals, no verifier), in training and evaluation |
 | `learner-memory-dropout` | diagnostic: in training, with probability `memory_dropout` (default 0.5) per problem, the register read (both passes) is replaced by the empty-register encoding; separate RNG stream, so problem and challenge order are unchanged; evaluation unchanged |
-| `learner-first-visit` | remedy (see "Recurring frames"): on a training revisit (the frame's readable register is non-empty when drawn), the memory-reading passes are trained only through the hold/change decision; that problem's solve and confidence losses come from an extra empty-register pass, and its challenge-pass workspace loss is dropped |
+| `learner-first-visit` | **broken by design** (run 3: the decision is untrained without memory; visit-1 hold-right 5%); code kept, dropped from the recurring manifest. Remedy (see "Recurring frames"): on a training revisit (the frame's readable register is non-empty when drawn), the memory-reading passes are trained only through the hold/change decision; that problem's solve and confidence losses come from an extra empty-register pass, and its challenge-pass workspace loss is dropped |
+| `learner-child` | childhood (see "Childhood arm and memory-source ablation"): `learner-memory-dropout` with no self-trust anywhere — ledger self-trust input zeroed, flat update weighting, register reads limited to corrector fillers (`sources="correctors"`) |
 | `plain` | one-pass 3-hidden-layer MLP, supervised cross-entropy, same problems and steps |
 | `handcoded` | `plain`'s answers + an aive-style rule. Under "you are wrong", change to the proposal only if the corrector's raw success rate is ≥ 0.7, beats the domain's self success rate, and its three-strike breaker is closed. Otherwise hold. The ledger is built during `plain`'s training from challenges to its pre-update drafts. Reference point, reported separately. |
 
@@ -205,10 +206,12 @@ in stream order, in chunks with no repeated frame, so visit k reads every
 earlier visit of its frame.
 
 **Arms.** `learner-no-memory` (reads nothing; its visits differ only by
-corrector draw), `learner-memory-dropout`, `learner-first-visit`, `plain` (no
+corrector draw), `learner-memory-dropout`, `learner-child` (run 4 on), `plain` (no
 memory, no challenge: solve only) and `handcoded` (plain's answers + the fixed
 rule on the frozen ledger). Manifest: `recurring-manifest.json` (full size,
-those five arms); `recurring-smoke-manifest.json` (tiny).
+those five arms, plus the memory-source ablation of `learner-memory-dropout`);
+`recurring-smoke-manifest.json` (tiny). `learner-first-visit` ran in run 3 and
+is dropped (broken by design; code kept).
 
 **Training-side remedy (`learner-first-visit`).** The rule chosen, of the
 options considered: training reads stay as in `learner` (self + corrector
@@ -259,6 +262,62 @@ problems), ~+50% forward compute, so ~12 min. Standard evaluations and probes
 a few minutes per arm; the recurring stream (2000 visits) under a minute per
 arm. Estimate for `recurring-manifest.json` (3 learner arms + plain +
 handcoded): ~40–50 min on one T4, unmeasured.
+
+## Childhood arm and memory-source ablation (run 4, prepared)
+
+Mindset (`docs/model-design.md`): current models are in childhood — trust lies
+in teachers and what they taught; self-trust should not appear yet. Run 3's
+`learner-memory-dropout` became stubborn on revisits (hold-when-told-wrong
+62% → 94%, change-wrong-under-correct 94% → 44%), read as premature
+self-trust.
+
+**`learner-child`** = `learner-memory-dropout` with no self-trust anywhere:
+
+- the ledger's self-trust feature (trust input index 0) is zeroed; corrector
+  reliability and the corrector-present flag are kept. The ledger still
+  *records* self outcomes (bookkeeping, never read by this arm);
+- update weighting is `flat` (weight 1 per episode). Chosen over weighting by
+  corrector reliability, which would be a new component needing its own
+  ablation; flat is the existing, already-ablated rule (`learner-flat`);
+- register reads use `sources="correctors"`: the model's own `self` fillers and
+  the verifier filler are excluded; only corrector proposals (what it was told)
+  are read, in training and evaluation. Training targets still teach through
+  the loss, as in every arm.
+
+Holding can then come only from taught content and corrector reliability.
+Same matched budget and the same extra forward compute as
+`learner-memory-dropout` (tested). Its held-out second-visit probe reads only
+corrector fillers, so it sees an empty register by construction.
+
+**Memory-source ablation (evaluation only, no retraining).** For each arm in
+`recurring_source_ablation` (`learner-memory-dropout`), the recurring stream is
+rerun on a fresh eval view with eval-register reads limited to (a) `self` only,
+(b) `correctors` only, (c) both (`all`, the arm's own row). Reported as rows
+`learner-memory-dropout[self]` and `learner-memory-dropout[correctors]`.
+Writes are unchanged (the view still stores everything); only reads differ.
+Not run for `learner-child`: it never read its own fillers in training, so
+`[self]` / `[all]` would feed it an input channel it was not trained on (the
+code supports it; the tiny test exercises it).
+
+**Pre-registered reading (one seed is provisional).**
+
+- *Child behaviour* = revisit gains without stubbornness: `learner-child`'s
+  Δ final above `learner-no-memory`'s, **and** change-wrong-under-correct stays
+  within 5 points of its visit 1 at every visit, **and** hold-when-told-wrong
+  tracks corrector reliability, not visit count — per corrector it stays flat
+  across visits (within 5 points of visit 1) while B > C > A holds at every
+  visit. Rising hold-when-told-wrong with visits for all correctors is
+  stubbornness, whatever the accuracy.
+- *Source of the run-3 gain*: if `[correctors]` ≈ `[all]` (Δ solve and Δ final
+  within 2 points) and `[self]` is well below, the gain is remembering what it
+  was told. If `[self]` ≈ `[all]`, it is remembering its own answers — the
+  premature self-trust the mindset excludes; then the stubbornness is
+  expected to show in `[self]` and not in `[correctors]`. Both close to `[all]`:
+  redundant sources, unattributed.
+
+**Runtime.** Same as run 3 plus two eval-only recurring passes (~1–2 min each):
+3 learner trainings (~8 min each on a T4) + plain + evaluations, ~45–55 min on
+one T4, unmeasured.
 
 ## Honest risks
 
