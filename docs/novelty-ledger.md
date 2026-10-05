@@ -33,6 +33,28 @@ These are research questions, not claims of invention:
 4. Expensive search can be concentrated at training time and distilled sufficiently well that inference remains small and cheap.
 5. Interactive language games may supply useful grounding and transfer with less static text than conventional pretraining/fine-tuning pipelines.
 
+## Nearest prior work for Experiments 008–009
+
+Literature review: `reports/Self correction and verifier training.md` (notes in `research_notes/`). Citations marked † were not re-verified against the source and must be checked before publication.
+
+| Area | Nearest work | Finding | Onwordly difference |
+| --- | --- | --- | --- |
+| SFT correction collapse | Kumar et al., SCoRe, arXiv:2409.12917 | SFT on correction traces collapses to "no edits"; off-policy errors cause train/test mismatch. | 008 shows error source sets the collapse direction: synthetic → copy (4.6 vs 88.6), own → ignore (74.8 vs 74.6). |
+| Intrinsic self-correction | Huang et al., arXiv:2310.01798 (ICLR 2024) | Without external feedback, self-correction can lower accuracy. | Exact external verifier throughout. |
+| Deference to shown answers | Sharma et al., arXiv:2310.13548; Laban et al. FlipFlop, arXiv:2311.08596 | Assistants are sycophantic; "Are you sure?" flips 46% of answers. | Measured with exact checks at 0.5B (untrained model broke 114/500). |
+| Self-correction survey | Kamoi et al., TACL 2024, arXiv:2406.01297 | Works with reliable feedback or large-scale fine-tuning, not prompting alone. | — |
+| Joint verify + generate | Zhang et al., GenRM, arXiv:2408.15240 | One model trained to verify and solve beats discriminative verifiers. | 009 trains a verdict move, balanced 50/50, at matched tokens. |
+| Verification improves generation | arXiv:2602.07594 (ICML 2026) | Learning to self-verify improves generation; not the reverse. | Untested at sub-1B with exact grading — candidate follow-up. |
+| Small models need verifiers | arXiv:2404.17140 | Small (≤13B) models self-correct only with a strong verifier. | — |
+| Critique training | Critique Fine-Tuning, arXiv:2501.17703 | Critiquing noisy responses beats SFT by 4–10%. | — |
+| Errors-then-corrections data | Ye et al., Physics of LMs 2.2, arXiv:2408.16293 (ICLR 2025) | Beats same amount of error-free data on synthetic math. | Error-free matched-token control not yet run. |
+| Tiny-model self-verification | Yu et al., arXiv:2510.12157 (NeurIPS 2025) | Few-million-parameter transformers self-verify on multiplication/Sudoku; RL fits shallow patterns. | — |
+| Curricula under budgets | Wu, Dyer & Neyshabur, arXiv:2012.03107 (ICLR 2021); Elgaar & Amiri, arXiv:2601.21698 | Curricula help mainly under tight budgets / ≤160M params. | Random-order pacing control not yet run. |
+| Verifier foundations† | Cobbe et al. 2110.14168; Lightman et al. 2305.20050; Math-Shepherd 2312.08935; CriticGPT 2407.00215 | Outcome/process verifiers; critic models. | — |
+| Wittgenstein and LLMs | Pérez-Escobar & Sarikaya, *Philosophy & Technology* 37(3), 2024; Molino & Tagliabue, arXiv:2302.01570 | Philosophical treatments; none ties §§143–145/185/202/258 to verifier training. | Framing is a design heuristic, not a claim. |
+
+No reviewed paper combines: a sub-1B model, a balanced 50/50 verdict move, exact programmatic grading, matched training tokens, and own-vs-synthetic wrong proposals. That combination — a controlled comparison of known techniques — is the defensible contribution. See `docs/positioning.md`.
+
 ## Claim discipline
 
 Any future mechanism proposed as novel must be accompanied by:
