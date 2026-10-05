@@ -1,0 +1,66 @@
+{
+  "lengths": [
+    5,
+    7,
+    9
+  ],
+  "alphabet": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+  ],
+  "optional_rules": 3,
+  "holdout_modulus": 5,
+  "train_size": 20000,
+  "eval_size": 1000,
+  "dataset_seed": 1111,
+  "evaluation_seed": 2211,
+  "training_seed": 3303,
+  "batch_size": 64,
+  "train_steps": 4000,
+  "revision_steps": 4,
+  "d_model": 192,
+  "layers": 4,
+  "heads": 4,
+  "learning_rate": 0.0003,
+  "correctors": [
+    [
+      "A",
+      0.1
+    ],
+    [
+      "B",
+      0.5
+    ]
+  ],
+  "unseen_corrector": [
+    "C",
+    0.3
+  ],
+  "trust_prior": [
+    1.0,
+    1.0
+  ],
+  "trust_half_life": 20000.0,
+  "trust_max_evidence": 500.0,
+  "update_gain": 2.0,
+  "update_max_weight": 3.0,
+  "register_cap": 6,
+  "handcoded_threshold": 0.7,
+  "handcoded_strikes": 3,
+  "arms": [
+    "learner",
+    "learner-flat",
+    "learner-no-memory",
+    "learner-no-trust",
+    "plain",
+    "handcoded"
+  ]
+}

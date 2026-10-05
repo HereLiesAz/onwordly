@@ -3,9 +3,9 @@
 Read these before changing the research design:
 
 1. `README.md`
-2. `docs/research-program.md`
+2. `docs/model-design.md`
 3. `docs/novelty-ledger.md`
-4. `docs/experiment-matrix.md`
+4. `docs/findings-llm-phase.md`
 5. `docs/session-handoff.md`
 6. the README and manifest for the experiment being changed
 
@@ -23,6 +23,6 @@ Read these before changing the research design:
 
 ## Current program
 
-Experiment 001 and the Experiment 002 arithmetic ablation own the active real-model compute. Experiments 003–006 extend the same exact-verification discipline across symbolic transformations, constrained strings, program execution, and formal logic. Experiment 007 prepares an exact process-supervision ablation using program-state traces.
+Experiment 000 (`experiments/000-onwordly-learner/`): a from-scratch learner with a revising workspace, add-only external memory and an earned-trust ledger, on exact constrained-string problems, against a parameter-matched plain network, a hand-coded trust rule and component ablations. For 000 the matched budget is optimizer steps × training problems (same order for every arm); extra forward passes are recorded separately.
 
-Use `docs/experiment-matrix.md` to keep the evidence ladder and compute gates straight before launching anything expensive.
+The earlier LLM phase (Experiments 001–011) is archived on branch `archive/llm-phase`; do not restore it here.

@@ -1,158 +1,32 @@
 # Onwordly
 
-**Onwordly** is a research workspace for making language-model training more data-efficient and compute-efficient, especially for small language models.
+Onwordly is a small learner built from scratch around three ideas:
 
-The central question is simple:
+- **Earned trust.** Self-trust (per domain) and trust in each corrector are earned from a track record against an exact checker, never assumed.
+- **Conscious judgment.** When a corrector contradicts the model, a reasoner sees both sides plus the evidence and decides to hold or change. The decision is recorded.
+- **Add-only memory.** Attempts, challenges, corrections and decisions are appended, never overwritten. Contradictions are kept, linked and recalled together.
 
-> How much static training data can be replaced by compact, executable teaching environments that generate tasks, test behavior, expose failures, and adapt what they teach?
+None of the components is new (see `docs/novelty-ledger.md`). The combination is the hypothesis, tested under exact verification and matched budgets.
 
-The repository deliberately separates **established techniques** from **new hypotheses and combinations**. Active learning, hard-example mining, curriculum learning, self-play, process supervision, GRPO, search, and distillation are prior art. Onwordly is not a renaming ceremony for other people's inventions.
+## Layout
 
-## Experiment 001
+- `src/onwordly/memory/`: episode store, variant register, trust ledger, update-weight rule.
+- `src/onwordly/learner/`: the Experiment 000 model, training, evaluation and Kaggle entry point.
+- `src/onwordly/publish.py`: pushes a results tree to a `kaggle-results/<stamp>` branch.
+- `experiments/000-onwordly-learner/`: README (question, arms, pre-registered reading) and manifests.
+- `docs/model-design.md`: the design. `docs/findings-llm-phase.md`: what the earlier LLM phase found and why it led here.
+- `notebooks/experiment_kaggle.ipynb`: runs Experiment 000 on Kaggle and publishes results.
 
-The first controlled experiment compares frozen static SFT, adaptive curriculum training, and adaptive error-focused training under the same training-token budget.
+## Running
 
-It includes deterministic train/eval partitioning, periodic checkpoints, a prompt-transfer-only split, a joint heldout+prompt split, out-of-range digit tests, duplicate-rate diagnostics, synchronized resource accounting, peak-memory capture, and repeated-seed aggregation.
-
-The Kaggle execution path distinguishes a confirmed Kaggle submission from a GitHub-side watcher. Run-plan revisions 14 (001 suite) and 15 (002 ablation) were launched on 2026-10-01; no outcome is recorded. See `docs/session-handoff.md`.
-
-See [experiments/001-arithmetic-curriculum](experiments/001-arithmetic-curriculum/README.md).
-
-## Experiment 002 — prepared ablation
-
-The next experiment is already scaffolded so we do not have to invent an explanation after seeing Experiment 001.
-
-It separates:
-
-1. frozen static data;
-2. fresh online data sampled uniformly;
-3. competence-responsive adaptive sampling;
-4. failure-neighborhood examples without adaptive bucket weighting;
-5. failure-neighborhood examples combined with adaptive weighting.
-
-Experiment 002 is **gated** for interpretation until Experiment 001 has a sane repeated-seed result. A single 002 run (revision 15) was launched ahead of that gate; treat its output as a mechanics check only.
-
-See [experiments/002-adaptive-ablation](experiments/002-adaptive-ablation/README.md).
-
-## Experiment 003 — symbolic substrate
-
-The next exact-verification domain now has deterministic generation, exact
-verification, stable train/eval partitioning, adaptive/error-focused curricula,
-and an equal-token real-model runner. No empirical result is claimed yet.
-No smoke or real-model run of Experiments 003–007 is recorded; "Kaggle support"
-below means a prepared path, not a validated one.
-
-See [experiments/003-symbolic-transformations](experiments/003-symbolic-transformations/README.md).
-
-## Experiment 004 — constrained string substrate
-
-A third exact-verification domain now has deterministic generation, stable
-train/eval partitioning, strict verification, adaptive/error-focused curricula,
-an equal-token runner, repeated-seed aggregation, and a Kaggle execution path.
-
-See [experiments/004-string-manipulation](experiments/004-string-manipulation/README.md).
-
-## Experiment 005 — simple program execution substrate
-
-A tiny accumulator-machine DSL now provides another exact-verification domain,
-with deterministic execution, adaptive/error-focused curricula, an equal-token
-runner, longer-program evaluation, repeated-seed aggregation, and Kaggle support.
-
-See [experiments/005-program-execution](experiments/005-program-execution/README.md).
-
-## Experiment 006 — formal logic substrate
-
-The initial deterministic Phase 0 domain list is now complete. Formal logic now
-also has adaptive/error-focused curricula, an equal-token runner, deeper-formula
-evaluation, repeated-seed aggregation, and Kaggle execution support.
-
-See [experiments/006-formal-logic](experiments/006-formal-logic/README.md).
-
-## Experiment 007 — exact process-supervision substrate
-
-The program-execution domain now exposes exact accumulator traces for every
-instruction, creating a mechanically verified process-supervision testbed. The
-comparison is prepared as a research direction, not yet an empirical result.
-
-See [experiments/007-program-process-supervision](experiments/007-program-process-supervision/README.md).
-
-## Local commands
-
-```bash
-python -m venv .venv
-. .venv/bin/activate
-pip install -e '.[train,test]'
-pytest
-
-# Experiment 001, one seed
-onwordly-arithmetic
-
-# Experiment 001, repeated seeds
-onwordly-arithmetic-suite --seeds 3303 4404 5505
-
-# Experiment 002 ablation
-onwordly-arithmetic-ablation
-
-# Experiment 003 symbolic transformations
-onwordly-symbolic
-
-# Experiment 004 constrained strings
-onwordly-string
-
-# Experiment 005 program execution
-onwordly-program
-
-# Experiment 006 formal logic
-onwordly-logic
+```
+pip install -e ".[train,dev]"
+python -m pytest -q
+python -m onwordly.learner.experiment --manifest experiments/000-onwordly-learner/smoke-manifest.json --output results/000-smoke
 ```
 
-## Untrained baselines on a GPU
+Remote runs go through the central workflow (`HereLiesAz/workflows`): `.kaggle-run` on main is read by the `onwordly-kaggle` console script, which runs Experiment 000.
 
-Baselines are too slow on CPU. Run them on Kaggle with a `.kaggle-run` plan:
+## Archive
 
-~~~text
-experiment: baseline
-models: Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-0.5B-Instruct
-chat_template: both
-per_split: 200
-run: 1
-~~~
-
-`chat_template` is `no` (raw prompts), `yes` (the model's chat template) or `both`. Outputs land in `results/baseline/`: the dataset audit plus one exact/lenient report per model and prompt format. On Colab, open `notebooks/baseline_colab.ipynb`, which runs the same plan.
-
-## Kaggle execution
-
-`.kaggle-run` is the repository-owned run plan consumed by the centralized Kaggle executor.
-
-Supported prepared modes:
-
-- Experiment 001 + `single` / `suite`
-- Experiment 002 + `single`
-- Experiment 003 + `single` / `suite`
-- Experiment 004 + `single` / `suite`
-- Experiment 005 + `single` / `suite`
-- Experiment 006 + `single` / `suite`
-- Experiment 007 + `single` only
-
-Experiment 002 + `suite` remains gated until Experiment 001 is interpreted. Experiment 007 + `suite` remains gated until the single-run supervision-cost accounting is inspected.
-
-## Read first in a new session
-
-Read `AGENTS.md`, then `docs/session-handoff.md`.
-
-## Repository map
-
-- `AGENTS.md` — rules for future sessions and contributors.
-- `docs/research-program.md` — research thesis and phases.
-- `docs/novelty-ledger.md` — prior art versus actual hypotheses.
-- `docs/experiment-matrix.md` — experiment states, invariants, evidence ladder, and compute gates.
-- `docs/session-handoff.md` — current state and next actions.
-- `experiments/` — experiment specifications and manifests.
-- `src/onwordly/datasets/` — frozen dataset generation.
-- `src/onwordly/tasks/` — arithmetic, symbolic, string, program, and logic task generators and split logic.
-- `src/onwordly/verifiers/` — exact/programmatic verification across every Phase 0 domain.
-- `src/onwordly/curricula/` — uniform and adaptive curricula.
-- `src/onwordly/training/` — sources, equal-token harness, evaluation.
-- `src/onwordly/models/` — model adapters.
-- `src/onwordly/experiments/` — single-run, suite, ablation, and Kaggle orchestration.
-- `tests/` — deterministic tests.
+The previous phase (fine-tuning Qwen2.5-0.5B on executable curricula, Experiments 001–011, reports, notes and scripts) is on branch `archive/llm-phase` (commit `c35b185`). Its findings are summarised in `docs/findings-llm-phase.md`.

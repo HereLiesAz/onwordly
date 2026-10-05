@@ -1,10 +1,10 @@
 # Model design — earned trust, conscious judgment, add-only memory
 
-Status: design. Nothing here is built or claimed. Components are established (see "Prior art"); the combination is the hypothesis.
+Status: design, built as Experiment 000 (`experiments/000-onwordly-learner/`); nothing claimed. Components are established (see "Prior art"); the combination is the hypothesis.
 
 ## Why
 
-Experiments 008–009 failed in one shape: copy, ignore, accept. A gradient update is memory that judges silently — a correction overwrites weights, the old belief is gone, no reasoning ever met the conflict. The shortcuts are what unconscious judgment looks like. The base model also arrives suggestible (broke 114/500 right answers when shown a wrong one).
+The archived Experiments 008–009 (`docs/findings-llm-phase.md`) failed in one shape: copy, ignore, accept. A gradient update is memory that judges silently — a correction overwrites weights, the old belief is gone, no reasoning ever met the conflict. The shortcuts are what unconscious judgment looks like. The base model also arrives suggestible (broke 114/500 right answers when shown a wrong one).
 
 ## Principles
 
@@ -51,9 +51,9 @@ Assessed against aive (`HereLiesAz/aive`, docs/Memory-layer.md and docs/architec
 
 ## Path
 
-1. **Fallible-challenge arms in 010/011** (current architecture): turn 1 answer; turn 2 a corrector that is wrong 30% of the time; reply `hold` or `change`; graded reward (right held 1.0, wrong changed correctly 0.6, close 0.4, far 0.3, close held 0.2, far held 0.0, right caved −0.5). Tests whether held-vs-changed tracks being right. Cheapest test of earned trust.
-2. **Explicit trust state** on the existing model: per-domain trust estimate from the episode store, fed to the reasoner, scaling learning rate. Ablate against aive-style hand-coded track records (success rate, three-strike circuit breaker).
-3. **From-scratch construction**: episode store + divergence marker + reasoner + trust ledger as model components; local, confidence-weighted learning. Baselines: same-size standard network; same construction trained by backprop.
+1. **Fallible-challenge arms in 010/011** (archived, built but never run; branch `archive/llm-phase`): an LLM-scale test of earned trust with a fallible corrector and graded reward. Their game and reward carry over to step 3.
+2. **Explicit trust state on the existing model** (not pursued): superseded by step 3; the aive-style hand-coded rule survives as the `handcoded` baseline.
+3. **From-scratch construction = Experiment 000** (current): episode store + variant register + reasoner + trust ledger as model components; confidence × surprise update weighting. Baselines: parameter-matched plain network; hand-coded trust rule; ablations of memory, trust and update rule.
 
 ## Borrow map
 
