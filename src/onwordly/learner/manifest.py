@@ -12,6 +12,7 @@ ARMS: tuple[str, ...] = (
     "learner-no-trust",  # baseline 4: trust read zeroed
     "learner-self-memory",  # diagnostic: register read limited to source="self" fillers
     "learner-memory-dropout",  # diagnostic: training register read replaced by empty with prob memory_dropout
+    "learner-first-visit",  # remedy: on revisited training frames only the hold/change decision trains the memory-reading passes
     "plain",  # baseline 1: one-pass MLP, standard supervised loss, matched parameters
     "handcoded",  # baseline 5: aive-style hold/change rule on top of "plain"
 )
@@ -54,6 +55,13 @@ class LearnerManifest:
     # the post-training register probe.
     memory_dropout: float = 0.5
     probe_size: int = 512
+    # Recurring-frame evaluation (README, "Recurring frames"): this many
+    # held-out frames, each visited recurring_visits times in a deterministic
+    # shuffled stream with at least recurring_min_gap other visits between two
+    # visits of the same frame. recurring_visits = 0 disables it.
+    recurring_frames: int = 500
+    recurring_visits: int = 4
+    recurring_min_gap: int = 25
     arms: tuple[str, ...] = field(default=ARMS)
 
     @property
@@ -98,6 +106,11 @@ class LearnerManifest:
             raise ValueError("memory_dropout must be in [0, 1]")
         if self.probe_size < 1:
             raise ValueError("probe_size must be positive")
+        if self.recurring_visits:
+            if self.recurring_visits < 2 or self.recurring_frames < 1 or self.recurring_min_gap < 1:
+                raise ValueError("recurring_visits must be 0 or >= 2; recurring_frames and recurring_min_gap positive")
+            if self.recurring_frames > self.eval_size or 2 * self.recurring_min_gap > self.recurring_frames:
+                raise ValueError("need recurring_frames <= eval_size and 2 * recurring_min_gap <= recurring_frames")
         if set(self.arms) - set(ARMS) or not self.arms:
             raise ValueError(f"arms must be chosen from {ARMS}")
         if "handcoded" in self.arms and "plain" not in self.arms:

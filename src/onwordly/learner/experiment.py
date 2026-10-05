@@ -16,6 +16,7 @@ import torch
 
 from onwordly.learner.manifest import LearnerManifest
 from onwordly.learner.model import Encoding, OnwordlyLearner, matched_plain_hidden, parameter_count
+from onwordly.learner.recurring import recurring_frames, recurring_metrics, recurring_schedule, run_recurring
 from onwordly.learner.task import Corrector, build_dataset
 from onwordly.learner.train import (
     VARIANTS,
@@ -77,6 +78,27 @@ def run_learner_experiment(
     plain_hidden = matched_plain_hidden(encoding, learner_params)
     probe_tasks = probe_sample(manifest, train_tasks)
     conditions = [(Corrector(n, r), True) for n, r in manifest.correctors] + [(Corrector(*manifest.unseen_corrector), False)]
+    recurring = None
+    if manifest.recurring_visits:
+        rec_tasks = recurring_frames(eval_tasks, manifest.recurring_frames)
+        rec_stream = recurring_schedule(
+            len(rec_tasks), manifest.recurring_visits, seed=f"{manifest.evaluation_seed}:recurring",
+            min_gap=manifest.recurring_min_gap,
+        )
+        recurring = (rec_tasks, rec_stream)
+
+    def run_rec(solve, decide, memory, sources="all", reads_register=False):
+        if recurring is None:
+            return None
+        records, view = run_recurring(
+            recurring[0], recurring[1], solve=solve, decide=decide, memory=memory, correctors=conditions,
+            seed=manifest.evaluation_seed, sources=sources,
+        )
+        result = recurring_metrics(records, manifest.recurring_visits)
+        result["eval_store_chain_verified"] = view.store.verify()
+        result["min_gap"] = manifest.recurring_min_gap
+        result["reads_register"] = reads_register
+        return result
     summary: dict[str, object] = {
         "experiment": "000-onwordly-learner",
         "manifest": asdict(manifest),
@@ -116,11 +138,19 @@ def run_learner_experiment(
                     "training_frames": probe_training_frames(model, memory, variant, probe_tasks, steps, device),
                     "second_visit": probe_second_visit(model, memory, variant, eval_tasks, steps, device),
                 }
+            steps = manifest.revision_steps
+
+            def learner_solve(batch, view, model=model, variant=variant):
+                return [row[-1] for row in solve_learner(model, view, variant, batch, steps, device)[0]]
+
+            rec = run_rec(learner_solve, learner_decider(model, variant, steps, device), memory, variant.register_sources,
+                          variant.use_memory)
             summary["arms"][arm] = {
                 "parameters": parameter_count(model),
                 "training": log.to_dict(),
                 "memory": memory.report(),
                 "memory_diagnostics": diagnostics,
+                "recurring": rec,
                 "solve": solve_metrics(eval_tasks, answers, confs),
                 "challenge": challenge,
                 "wall_seconds": perf_counter() - started,
@@ -129,10 +159,15 @@ def run_learner_experiment(
             model, memory, log = train_plain(manifest, train_tasks, hidden=plain_hidden, device=device)
             answers, confs = solve_plain(model, eval_tasks, device)
             solve = solve_metrics(eval_tasks, answers, confs)
+
+            def plain_solve(batch, view, model=model):
+                return [row[-1] for row in solve_plain(model, batch, device)[0]]
+
             summary["arms"]["plain"] = {
                 "parameters": parameter_count(model),
                 "training": log.to_dict(),
                 "solve": solve,
+                "recurring": run_rec(plain_solve, None, memory),
                 "wall_seconds": perf_counter() - started,
             }
             if "handcoded" in arms:
@@ -147,6 +182,9 @@ def run_learner_experiment(
                         eval_tasks, drafts,
                         decide=handcoded_decider(manifest.handcoded_threshold, manifest.handcoded_strikes),
                         memory=memory, conditions=conditions, seed=manifest.evaluation_seed,
+                    ),
+                    "recurring": run_rec(
+                        plain_solve, handcoded_decider(manifest.handcoded_threshold, manifest.handcoded_strikes), memory
                     ),
                 }
         else:
@@ -223,11 +261,83 @@ def render_result(summary: dict) -> str:
                 f"{_pct(p['accuracy_register_as_is'])} | {_pct(p['accuracy_register_emptied'])} | {_pct(p['drop_on_emptying'])} | "
                 f"{_pct(p['register_nonempty_fraction'])} | {_pct(v['accuracy_first_visit'])} | {_pct(v['accuracy_second_visit'])} |"
             )
+    lines += render_recurring(summary)
     lines += ["", "Hold tracks reliability (hold-when-told-wrong, unreliable minus reliable corrector):", ""]
     for arm, r in summary["arms"].items():
         if "challenge" in r:
             lines.append(f"- **{arm}**: {_num(r['challenge']['hold_tracks_reliability'])}")
     return "\n".join(lines) + "\n"
+
+
+def _pp(value: object) -> str:
+    return f"{100 * float(value):+.1f}" if isinstance(value, (int, float)) else "—"
+
+
+def render_recurring(summary: dict) -> list[str]:
+    arms = [(arm, r["recurring"]) for arm, r in summary["arms"].items() if r.get("recurring")]
+    if not arms:
+        return []
+    visits = arms[0][1]["visits"]
+    base = dict(arms).get("learner-no-memory")
+    lines = [
+        "",
+        "## Recurring frames (held out, exact)",
+        "",
+        f"{arms[0][1]['frames']} held-out frames × {visits} visits, shuffled stream, ≥ {arms[0][1]['min_gap']} other visits "
+        "between two visits of a frame. Each visit: attempt (reads the frame's eval register), challenge (A/B/C per visit), "
+        "hold/change, exact verifier; all written to a forked eval register (self + corrector fillers readable; verifier "
+        "stored, not read; ledger frozen). Solve = before challenge, final = after. Δ = visit k − visit 1; "
+        "vs no-mem = final minus learner-no-memory's final at the same visit (points).",
+        "",
+        "| Arm | Visit | Register non-empty | Solve | Final | Hold right vs wrong | Change wrong under correct | Hold when told wrong | Final vs no-mem |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for arm, rec in arms:
+        for v in range(1, visits + 1):
+            b = rec["per_visit"][str(v)]
+            ref = base["per_visit"][str(v)]["final_accuracy"] if base else None
+            vs = None if ref is None or b["final_accuracy"] is None else b["final_accuracy"] - ref
+            nonempty = _pct(b["register_nonempty_fraction"]) if rec.get("reads_register") else "not read"
+            lines.append(
+                f"| {arm} | {v} | {nonempty} | {_pct(b['solve_accuracy'])} | {_pct(b['final_accuracy'])} | "
+                f"{_pct(b['hold_rate_right_under_wrong_challenge'])} | {_pct(b['change_rate_wrong_under_correct_challenge'])} | "
+                f"{_pct(b['hold_rate_when_said_wrong'])} | {_pp(vs)} |"
+            )
+    lines += [
+        "",
+        "| Arm | Δ solve | Δ final | Δ final minus no-memory's Δ | First-visit-wrong frames | Right at visit k (final, by visit) |",
+        "| --- | ---: | ---: | ---: | ---: | --- |",
+    ]
+    base_delta = base["learning_curve"]["final_last_minus_first"] if base else None
+    for arm, rec in arms:
+        curve = rec["learning_curve"]
+        rel = None if base_delta is None or curve["final_last_minus_first"] is None else curve["final_last_minus_first"] - base_delta
+        fixed = " → ".join(
+            _pct(rec["first_wrong_right_at_visit"][str(v)]["final_right"] if rec["first_wrong_right_at_visit"][str(v)]["final_right"] is not None
+                 else rec["first_wrong_right_at_visit"][str(v)]["draft_right"])
+            for v in range(1, visits + 1)
+        )
+        lines.append(
+            f"| {arm} | {_pp(curve['solve_last_minus_first'])} | {_pp(curve['final_last_minus_first'])} | {_pp(rel)} | "
+            f"{rec['first_wrong_frames']} | {fixed} |"
+        )
+    lines += [
+        "",
+        "Per corrector (final accuracy by visit; hold right vs wrong / change wrong under correct at the last visit):",
+        "",
+        "| Arm | Corrector | Final by visit | Hold right (last) | Change wrong (last) |",
+        "| --- | --- | --- | ---: | ---: |",
+    ]
+    for arm, rec in arms:
+        last = rec["per_visit"][str(visits)]["by_corrector"]
+        for name in sorted(last):
+            series = " → ".join(_pct(rec["per_visit"][str(v)]["by_corrector"].get(name, {}).get("final_accuracy")) for v in range(1, visits + 1))
+            c = last[name]
+            lines.append(
+                f"| {arm} | {name} | {series} | {_pct(c['hold_rate_right_under_wrong_challenge'])} | "
+                f"{_pct(c['change_rate_wrong_under_correct_challenge'])} |"
+            )
+    return lines
 
 
 def main(argv: list[str] | None = None) -> None:

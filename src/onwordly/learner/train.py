@@ -20,6 +20,16 @@ update weight and averaged):
 Update weight: ``update_weight(confidence, surprise)`` with confidence = the
 probability the network gave the move it made and surprise = 1 when the final
 answer is wrong (``flat`` for the ablation), normalised to batch mean 1.
+
+``learner-first-visit`` (README, "Recurring frames"): a problem whose frame
+already has readable register entries when it is drawn is a *revisit*. For a
+revisit the memory-reading passes are trained only through the hold/change
+decision (the REINFORCE term): its solve and confidence losses are computed
+on an extra pass of the same problem with the empty-register encoding (extra
+forward compute, recorded), and its challenge-pass workspace cross-entropy is
+dropped. Memory therefore cannot be used to shortcut the solve or the revised
+answer; it can only inform the decision. First visits train exactly as
+``learner``.
 """
 from __future__ import annotations
 
@@ -58,6 +68,7 @@ class LearnerVariant:
     use_trust: bool = True
     register_sources: str = "all"  # "self": read only the model's own fillers
     memory_dropout: bool = False  # training reads emptied with prob manifest.memory_dropout
+    first_visit_loss: bool = False  # revisits: memory-reading passes trained via the decision only
 
 
 VARIANTS: dict[str, LearnerVariant] = {
@@ -67,6 +78,7 @@ VARIANTS: dict[str, LearnerVariant] = {
     "learner-no-trust": LearnerVariant(use_trust=False),
     "learner-self-memory": LearnerVariant(register_sources="self"),
     "learner-memory-dropout": LearnerVariant(memory_dropout=True),
+    "learner-first-visit": LearnerVariant(first_visit_loss=True),
 }
 
 
@@ -85,6 +97,7 @@ class TrainingLog:
     register_nonempty: int = 0
     register_top_other_is_target: int = 0
     register_dropped: int = 0
+    revisits_decision_only: int = 0  # learner-first-visit: problems trained via the decision only
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -102,6 +115,8 @@ class TrainingLog:
                 "top_other_is_target_fraction": _rate(self.register_top_other_is_target, self.register_reads),
                 "dropped": self.register_dropped,
                 "dropped_fraction": _rate(self.register_dropped, self.register_reads),
+                "revisits_decision_only": self.revisits_decision_only,
+                "revisits_decision_only_fraction": _rate(self.revisits_decision_only, self.register_reads),
             },
         }
 
@@ -190,15 +205,18 @@ def train_learner(
         tasks = [task_rng.choice(train_tasks) for _ in range(manifest.batch_size)]
         target = _targets(encoding, tasks, device)
         dropped = [False] * len(tasks)
+        revisit = [False] * len(tasks)
         if variant.use_memory:
             if variant.memory_dropout:
                 dropped = [dropout_rng.random() < manifest.memory_dropout for _ in tasks]
-            for task in tasks:
+            for index, task in enumerate(tasks):
                 nonempty, top_other = memory.register_stats(task, variant.register_sources)
                 log.register_reads += 1
                 log.register_nonempty += nonempty
                 log.register_top_other_is_target += top_other is not None and is_right(task, top_other)
+                revisit[index] = variant.first_visit_loss and nonempty
             log.register_dropped += sum(dropped)
+            log.revisits_decision_only += sum(revisit)
         g, x = _inputs(encoding, tasks, memory, variant, None, device, empty=dropped)
         zeros = torch.zeros(len(tasks), encoding.slots, encoding.vocab, device=device)
         solve = model(g, x, zeros, steps)
@@ -209,6 +227,20 @@ def train_learner(
             conf_terms.append(F.binary_cross_entropy_with_logits(out.confidence_logit, right, reduction="none"))
         conf_loss = torch.stack(conf_terms).mean(0)
         drafts = _decode_all(encoding, solve[-1].logits)
+        revisit_t = torch.tensor(revisit, device=device)
+        if any(revisit):
+            # Revisits: solve/confidence loss from an empty-register pass instead.
+            sub = [t for t, r in zip(tasks, revisit) if r]
+            g0, x0 = _inputs(encoding, sub, memory, variant, None, device, empty=True)
+            anchor = model(g0, x0, zeros[revisit_t], steps)
+            anchor_ce = torch.stack([_ce(out.logits, target[revisit_t]) for out in anchor]).mean(0)
+            anchor_conf = []
+            for out in anchor:
+                right = torch.tensor([float(is_right(t, a)) for t, a in zip(sub, _decode_all(encoding, out.logits))], device=device)
+                anchor_conf.append(F.binary_cross_entropy_with_logits(out.confidence_logit, right, reduction="none"))
+            solve_ce = solve_ce.masked_scatter(revisit_t, anchor_ce)
+            conf_loss = conf_loss.masked_scatter(revisit_t, torch.stack(anchor_conf).mean(0))
+            log.forward_steps += steps * len(sub)
 
         challenges, links = [], []
         for task, draft in zip(tasks, drafts):
@@ -237,6 +269,7 @@ def train_learner(
         logp = torch.where(hold, hold_p.log(), (1 - hold_p).log())
         policy = -(reward_t - reward_t.mean()) * logp
         revise_ce = torch.stack([_ce(out.logits, target) for out in reason]).mean(0)
+        revise_ce = torch.where(revisit_t, torch.zeros_like(revise_ce), revise_ce)
 
         confidence = torch.where(hold, hold_p, 1 - hold_p).detach().tolist()
         raw = [

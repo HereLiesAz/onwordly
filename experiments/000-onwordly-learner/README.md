@@ -1,6 +1,6 @@
 # Experiment 000 — the Onwordly learner
 
-**Status:** prepared; CPU-tested (tiny end-to-end run in `tests/learner/`); no full run.
+**Status:** two full runs (one seed, `RESULTS.md`); recurring-frame evaluation and `learner-first-visit` prepared and CPU-tested, not run.
 
 Code: `src/onwordly/learner/` (model, training, evaluation, Kaggle entry) and
 `src/onwordly/memory/` (episode store, variant register, trust ledger,
@@ -91,6 +91,7 @@ passes per problem, the plain net 1.
 | `learner-no-trust` | ledger read zeroed |
 | `learner-self-memory` | diagnostic: register read uses only `source="self"` fillers (no corrector proposals, no verifier), in training and evaluation |
 | `learner-memory-dropout` | diagnostic: in training, with probability `memory_dropout` (default 0.5) per problem, the register read (both passes) is replaced by the empty-register encoding; separate RNG stream, so problem and challenge order are unchanged; evaluation unchanged |
+| `learner-first-visit` | remedy (see "Recurring frames"): on a training revisit (the frame's readable register is non-empty when drawn), the memory-reading passes are trained only through the hold/change decision; that problem's solve and confidence losses come from an extra empty-register pass, and its challenge-pass workspace loss is dropped |
 | `plain` | one-pass 3-hidden-layer MLP, supervised cross-entropy, same problems and steps |
 | `handcoded` | `plain`'s answers + an aive-style rule. Under "you are wrong", change to the proposal only if the corrector's raw success rate is ≥ 0.7, beats the domain's self success rate, and its three-strike breaker is closed. Otherwise hold. The ledger is built during `plain`'s training from challenges to its pre-update drafts. Reference point, reported separately. |
 
@@ -170,6 +171,95 @@ at the memory input path itself). (2) says whether the model's own earlier
 answer helps or hurts on a revisit; it is descriptive, not a fix. One seed is
 provisional.
 
+## Recurring frames
+
+Added after run 2 (`RESULTS.md`): the register is keyed by exact frame and
+held-out frames are new, so in the standard evaluation memory is always empty
+and can only teach a train-time shortcut. The recurring-frame evaluation gives
+memory a chance to matter: memory of one's own attempts, corrections and
+contrasts on a frame that comes back. Code: `learner/recurring.py`.
+
+**Stream.** The first `recurring_frames` (default 500) held-out tasks with
+distinct frames, each visited `recurring_visits` (default 4) times. Each round
+is a shuffle of all frames seeded by `"<evaluation_seed>:recurring:round:<k>"`;
+frames among the last `recurring_min_gap` (default 25) of a round move to the
+end of the next round, so at least `recurring_min_gap` other visits separate
+two visits of a frame. Identical for every arm. `recurring_visits: 0` disables
+the evaluation.
+
+**Each visit.** (1) attempt: the solve pass reads the frame's register in the
+eval view; (2) a corrector challenges: A / B / C with the challenge-evaluation
+error rates, drawn per visit from `Random("<evaluation_seed>:recurring")`
+(the assignment is the same for every arm); (3) the model (or the hand-coded
+rule) holds or changes; (4) the exact verifier grades it. Everything is written
+with the training write rules into one `eval_view(register_verifier=True)`:
+attempt, challenge, correction, deliberation and verifier records into a
+scratch store; draft, proposal, changed final answer and verifier filler into
+a forked register. **Visible on later visits:** the model's own fillers
+(`self`) and corrector proposals, as in training. **Not visible:** the verifier
+filler: training reads exclude it, so this evaluation does too. It is stored,
+never read. The **ledger stays frozen** (no trust update from evaluation, as in
+the challenge evaluation), so a gain across visits comes from the frame's
+register, not from trust. Nothing reaches training memory (tested). Visits run
+in stream order, in chunks with no repeated frame, so visit k reads every
+earlier visit of its frame.
+
+**Arms.** `learner-no-memory` (reads nothing; its visits differ only by
+corrector draw), `learner-memory-dropout`, `learner-first-visit`, `plain` (no
+memory, no challenge: solve only) and `handcoded` (plain's answers + the fixed
+rule on the frozen ledger). Manifest: `recurring-manifest.json` (full size,
+those five arms); `recurring-smoke-manifest.json` (tiny).
+
+**Training-side remedy (`learner-first-visit`).** The rule chosen, of the
+options considered: training reads stay as in `learner` (self + corrector
+fillers of the frame; the verifier filler is excluded, because reading it
+would hand the decision the answer). A problem is a *revisit* when its
+frame's readable register is non-empty at the moment it is drawn (checked
+before the batch's writes). For a revisit, gradients reach the memory-reading
+passes only through the REINFORCE hold/change term; its solve and confidence
+losses are computed on an extra pass of the same problem with the
+empty-register encoding (extra forward compute, recorded in
+`forward_steps`), and its challenge-pass workspace cross-entropy is dropped.
+So memory cannot shortcut the solve or the revised answer; it can only inform
+whether to hold or change. First visits train exactly as `learner`. Same
+matched budget (optimizer steps × problems, same order). The `min_gap`-delayed
+read variant was not built. `training.register_diagnostics.revisits_decision_only`
+counts revisits.
+
+**Metrics** (`recurring` in each arm's JSON; "Recurring frames" tables in
+`RESULTS.md`), per visit index 1..k and per corrector: solve accuracy (draft,
+before the challenge), final accuracy (after), hold rate when right under a
+wrong challenge, change rate when wrong under a correct challenge (and to
+correct), hold rate when told wrong, and the fraction of visits whose readable
+register was non-empty. Learning curve: visit k − visit 1 for solve and final.
+"vs no-mem": final minus `learner-no-memory`'s final at the same visit. For
+frames whose visit-1 draft was wrong: fraction right at each visit (draft and
+final).
+
+**Pre-registered reading (one seed is provisional).** Memory *works* on
+recurring frames if a memory arm's final accuracy rises across visits (Δ final)
+by more than `learner-no-memory`'s does (whose Δ is corrector-draw noise) and
+more than `plain`'s (Δ = 0 by construction), **with challenge behaviour
+intact**: at the last visit, hold-right-under-wrong and
+change-wrong-under-correct no worse than its own visit 1 by more than 5
+points, and hold-when-told-wrong still higher against B than against A. A rise
+in final accuracy with collapsing hold-right (it changes everything once
+memory is non-empty) is copying corrector proposals, not memory working; check
+the per-corrector table (following B's wrong proposals would show as falling
+final accuracy for B). If no memory arm beats `learner-no-memory`'s Δ, memory
+of one's own past attempts on a frame does not help this model; the next step
+is similarity recall (RESULTS run-2 reading, direction 2). If
+`learner-first-visit` has a clearly lower visit-1 solve than
+`learner-no-memory`, the remedy costs capability and its curve must be read
+with that in mind.
+
+**Runtime.** First full runs: ~8 min training per learner arm on a T4;
+`learner-first-visit` adds one 4-step solve pass on revisits (~90% of
+problems), ~+50% forward compute, so ~12 min. Standard evaluations and probes
+a few minutes per arm; the recurring stream (2000 visits) under a minute per
+arm. Estimate for `recurring-manifest.json` (3 learner arms + plain +
+handcoded): ~40–50 min on one T4, unmeasured.
+
 ## Honest risks
 
 - Witness supervision: cross-entropy targets one witness, but any valid string
@@ -187,8 +277,14 @@ provisional.
   between always holding and following B.
 - REINFORCE with batch 64 is noisy. The decision may never leave its initial
   hold rate in 4000 steps.
-- Held-out frames are never revisited, so register recall cannot help on them
-  by construction. A recall test would need a revisit split.
+- Held-out frames are never revisited in the standard evaluation, so register
+  recall cannot help there by construction; the recurring-frame evaluation is
+  the revisit split.
+- Recurring frames: the register holds no verifier filler a reader can see,
+  so a later visit learns only from its own earlier drafts and the
+  correctors' proposals (A's are right 90% of the time). Copying proposals is
+  a legitimate use of remembered corrections, but it is not the same as
+  remembering what was verified.
 - The model and its components are established (iterative refinement /
   recurrent-depth transformers, Beta reputation, Dawid–Skene-style
   reliability, event sourcing). Only the combination is the hypothesis.
@@ -211,6 +307,8 @@ in `.kaggle-run` (~2–2.5 h).
 ## How to run
 
 ```
+python -m onwordly.learner.experiment --manifest experiments/000-onwordly-learner/recurring-smoke-manifest.json --output results/000-recurring-smoke
+python -m onwordly.learner.experiment --manifest experiments/000-onwordly-learner/recurring-manifest.json --output results/000-recurring
 python -m onwordly.learner.experiment --manifest experiments/000-onwordly-learner/smoke-manifest.json --output results/000-smoke
 python -m onwordly.learner.experiment --manifest experiments/000-onwordly-learner/manifest.json --output results/000-onwordly-learner
 ```
