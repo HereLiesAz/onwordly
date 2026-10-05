@@ -192,6 +192,10 @@ Neither corrective arm learned to correct (two-pass self-correction never improv
 
 Answer to 008's result: the move is a judgement. Shown a proposal (right with p = 0.5, independent of the model's attempt), the model replies `right` or `wrong: <correct integer>`; copying scores 50%, ignoring cannot answer. Arms: verdict-synthetic, verdict-mixed (own wrong answers when available), plus static and 008's corrective-synthetic as controls. Evaluation adds balanced verdict accuracy and a self-check (answer → judge own answer → keep or repair). Harness verification now dispatches per task (`verify_task`), identical for existing task types. Kaggle: `experiment: 009`. See `experiments/009-verdict-language-game/README.md`.
 
+## Experiment 009 first result (2026-10-05, one seed)
+
+Verdict move collapsed to acceptance: verdict-mixed answers `right` to everything (balanced 50.0%); verdict-synthetic catches 13.4% of wrong proposals (balanced 51.9%), repairs every catch. Self-check: 1 fix, 0 breaks. Both verdict arms below static on held-out and out-of-range. Third shortcut after 008's copy/ignore. See `experiments/009-verdict-language-game/RESULTS.md`. Next: seeds; then verdict budget, answer-before-verdict format, or RL with exact reward.
+
 ## Literature review (2026-10-05)
 
 Nearest prior work for 008/009 recorded in `docs/novelty-ledger.md`; full review in `reports/Self correction and verifier training.md`; positioning and next experiments in `docs/positioning.md`. Defensible contribution is the controlled comparison, not any technique.

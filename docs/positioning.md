@@ -43,4 +43,6 @@ The longer arc: exact-verification domains (003–007) as cheap laboratories for
 5. **SCoRe-style RL stage** from the best SFT arm, exact checker as reward, compute recorded separately.
 6. **Verification → generation:** plain no-proposal accuracy after verdict-only training vs a generation-only arm (tests arXiv:2602.07594 at sub-1B).
 
-Nothing above is claimed until 009 reports.
+## 009, first seed
+
+It did not. The verdict move collapsed to acceptance (mixed: `right` to everything; synthetic: 13.4% of wrong proposals caught). Three formats, three shortcuts: copy, ignore, accept. One seed; nothing claimed until repeated. Per the branch above, the next levers are verdict budget, answer-before-verdict ordering, and on-policy RL.
