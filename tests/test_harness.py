@@ -26,6 +26,14 @@ class FakeAdapter:
         self.train_calls += 1
         return TrainStepMetrics(loss=1.0 / self.train_calls, tokens=self.tokens_per_example)
 
+    def sample(self, prompt: str, n: int, temperature: float) -> list[str]:
+        del temperature
+        return [self.generate(prompt) for _ in range(n)]
+
+    def train_weighted(self, prompt: str, completion: str, weight: float) -> TrainStepMetrics:
+        del weight
+        return self.train_example(prompt, completion)
+
 
 def test_equal_token_harness_never_overshoots() -> None:
     source = StaticArithmeticSource((make_arithmetic_task(2, 3, "add"),))

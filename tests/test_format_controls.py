@@ -24,6 +24,14 @@ class FakeAdapter:
         del prompt, target
         return TrainStepMetrics(loss=1.0, tokens=self.tokens_per_example)
 
+    def sample(self, prompt: str, n: int, temperature: float) -> list[str]:
+        del temperature
+        return [self.generate(prompt) for _ in range(n)]
+
+    def train_weighted(self, prompt: str, completion: str, weight: float) -> TrainStepMetrics:
+        del weight
+        return self.train_example(prompt, completion)
+
 
 def test_lenient_match_finds_standalone_answer_only() -> None:
     assert lenient_match("The answer is 2.", 2)

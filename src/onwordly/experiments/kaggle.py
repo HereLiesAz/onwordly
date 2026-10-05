@@ -42,7 +42,19 @@ DEFAULT_MANIFESTS: dict[str, str] = {
     "007": "experiments/007-program-process-supervision/manifest.json",
     "008": "experiments/008-corrective-language-game/manifest.json",
     "009": "experiments/009-verdict-language-game/manifest.json",
+    "010": "experiments/010-verdict-repair/manifest.json",
 }
+
+# Experiment 010: three repair levers for 009's accept collapse (budget,
+# answer-before-verdict ordering, on-policy reward) against static and 009's
+# verdict-synthetic arm, rerun for seed comparability.
+VERDICT_REPAIR_REGIMES: tuple[str, ...] = (
+    "static",
+    "verdict-synthetic",
+    "verdict-dense",
+    "solve-judge-synthetic",
+    "verdict-rl",
+)
 
 # Experiment 009: static reference, two verdict arms, and 008's synthetic
 # corrective arm to show that copying fails a balanced verdict test.
@@ -136,13 +148,15 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
                 f"Experiment 008 needs a manifest with corrective_evaluation_size > 0; "
                 f"{manifest} has none (use {DEFAULT_MANIFESTS['008']})"
             )
-    if experiment == "009" and manifest:
+    if experiment in ("009", "010") and manifest:
         payload = json.loads(Path(manifest).read_text(encoding="utf-8"))
         if not payload.get("verdict_evaluation_size"):
             raise ValueError(
-                f"Experiment 009 needs a manifest with verdict_evaluation_size > 0; "
-                f"{manifest} has none (use {DEFAULT_MANIFESTS['009']})"
+                f"Experiment {experiment} needs a manifest with verdict_evaluation_size > 0; "
+                f"{manifest} has none (use {DEFAULT_MANIFESTS[experiment]})"
             )
+    if experiment == "010" and mode == "suite":
+        raise ValueError("Experiment 010 suite is gated until a single run is inspected")
     if experiment == "009" and mode == "suite":
         raise ValueError("Experiment 009 suite is gated until a single run is inspected")
     if experiment == "008" and mode == "suite":
@@ -190,6 +204,7 @@ BATCH_JOBS: dict[str, str] = {
     "002": DEFAULT_MANIFESTS["002"],
     "008": DEFAULT_MANIFESTS["008"],
     "009": DEFAULT_MANIFESTS["009"],
+    "010": DEFAULT_MANIFESTS["010"],
 }
 
 
@@ -216,11 +231,12 @@ def _job_units(job: str, seeds: tuple[int, ...], root: Path) -> tuple[list[tuple
             return output
 
         return units, finish
-    regimes = {"002": ABLATION_REGIMES, "008": CORRECTIVE_REGIMES, "009": VERDICT_REGIMES}.get(job, DEFAULT_REGIMES)
+    regimes = {"002": ABLATION_REGIMES, "008": CORRECTIVE_REGIMES, "009": VERDICT_REGIMES, "010": VERDICT_REPAIR_REGIMES}.get(job, DEFAULT_REGIMES)
     output = root / {
         "002": "002-adaptive-ablation",
         "008": "008-corrective-language-game",
         "009": "009-verdict-language-game",
+        "010": "010-verdict-repair",
     }.get(job, "001-arithmetic-curriculum")
     units = [(manifest_path, str(output), regime) for regime in regimes]
 
@@ -360,6 +376,10 @@ def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
     elif plan.experiment == "009":
         output = root / "009-verdict-language-game"
         run_parallel(plan.manifest, output_dir=output, regimes=VERDICT_REGIMES)
+        result_path = output / "summary.json"
+    elif plan.experiment == "010":
+        output = root / "010-verdict-repair"
+        run_parallel(plan.manifest, output_dir=output, regimes=VERDICT_REPAIR_REGIMES)
         result_path = output / "summary.json"
     elif plan.experiment == "002":
         output = root / "002-adaptive-ablation"

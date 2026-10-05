@@ -18,6 +18,14 @@ class TinySymbolicAdapter:
         self.answers[prompt] = target
         return TrainStepMetrics(loss=0.5, tokens=5)
 
+    def sample(self, prompt: str, n: int, temperature: float) -> list[str]:
+        del temperature
+        return [self.generate(prompt) for _ in range(n)]
+
+    def train_weighted(self, prompt: str, completion: str, weight: float) -> TrainStepMetrics:
+        del weight
+        return self.train_example(prompt, completion)
+
 
 def test_symbolic_experiment_runs_equal_token_regimes(tmp_path) -> None:
     manifest = SymbolicExperimentManifest(

@@ -21,9 +21,10 @@ from onwordly.models.huggingface import HuggingFaceCausalLMAdapter
 from onwordly.training.evaluation import EvaluationResult, evaluate_arithmetic
 from onwordly.training.corrective_evaluation import evaluate_corrective
 from onwordly.training.corrective_sources import CorrectiveArithmeticSource
-from onwordly.training.harness import run_equal_token_training
+from onwordly.training.harness import OnPolicyConfig, run_equal_token_training
 from onwordly.training.verdict_evaluation import evaluate_verdict
 from onwordly.training.verdict_sources import VerdictArithmeticSource
+from onwordly.tasks.solve_judge import make_solve_judge_task
 from onwordly.tasks.verdict import verify_task
 from onwordly.training.sources import (
     AdaptiveArithmeticSource,
@@ -166,6 +167,29 @@ def _source_for_regime(
             wrong_source="synthetic" if regime == "verdict-synthetic" else "mixed",
             verdict_rate=manifest.verdict_rate,
             seed=manifest.training_seed,
+        )
+    if regime == "verdict-dense":
+        return VerdictArithmeticSource(
+            static_tasks,
+            wrong_source="synthetic",
+            verdict_rate=manifest.dense_verdict_rate,
+            seed=manifest.training_seed,
+        )
+    if regime == "solve-judge-synthetic":
+        return VerdictArithmeticSource(
+            static_tasks,
+            wrong_source="synthetic",
+            verdict_rate=manifest.verdict_rate,
+            seed=manifest.training_seed,
+            make_move=make_solve_judge_task,
+        )
+    if regime == "verdict-rl":
+        return VerdictArithmeticSource(
+            static_tasks,
+            wrong_source="synthetic",
+            verdict_rate=manifest.verdict_rate,
+            seed=manifest.training_seed,
+            on_policy=OnPolicyConfig(samples=manifest.rl_samples, temperature=manifest.rl_temperature),
         )
     if regime == "error-focused-uniform":
         return ErrorFocusedArithmeticSource(
@@ -376,6 +400,8 @@ def run_experiment(
                 adapter,
                 heldout_tasks[: manifest.verdict_evaluation_size],
                 seed=manifest.evaluation_seed,
+                # Each arm is judged in the format it was trained on.
+                format="solve-judge" if regime_name == "solve-judge-synthetic" else "verdict",
             )
         _synchronize_adapter(adapter)
         final_evaluation_seconds = perf_counter() - started

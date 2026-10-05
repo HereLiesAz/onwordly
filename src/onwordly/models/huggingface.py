@@ -127,7 +127,49 @@ class HuggingFaceCausalLMAdapter:
         generated_ids = output[0, prompt_length:]
         return self.tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
 
+    def sample(self, prompt: str, n: int, temperature: float) -> list[str]:
+        """``n`` completions by pure temperature sampling (top-k/top-p disabled)."""
+        if n < 1 or temperature <= 0.0:
+            raise ValueError("sample needs n >= 1 and temperature > 0")
+        torch = self.torch
+        encoded = self.tokenizer(self._format_prompt(prompt), return_tensors="pt")
+        encoded = {key: value.to(self.device) for key, value in encoded.items()}
+        prompt_length = encoded["input_ids"].shape[1]
+
+        was_training = self.model.training
+        self.model.eval()
+        with torch.no_grad():
+            output = self.model.generate(
+                **encoded,
+                max_new_tokens=self.max_new_tokens,
+                do_sample=True,
+                temperature=temperature,
+                top_k=0,
+                top_p=1.0,
+                num_return_sequences=n,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+            )
+        if was_training:
+            self.model.train()
+        return [
+            self.tokenizer.decode(row[prompt_length:], skip_special_tokens=True).strip()
+            for row in output
+        ]
+
     def train_example(self, prompt: str, target: str) -> TrainStepMetrics:
+        return self._train_step(prompt, target, None)
+
+    def train_weighted(self, prompt: str, completion: str, weight: float) -> TrainStepMetrics:
+        """Update on ``weight`` x mean NLL of ``completion`` (negative weight lowers it).
+
+        Same token accounting as ``train_example``; works unchanged with LoRA,
+        since only trainable parameters are in the optimizer. The returned loss
+        is the unweighted NLL.
+        """
+        return self._train_step(prompt, completion, float(weight))
+
+    def _train_step(self, prompt: str, target: str, weight: float | None) -> TrainStepMetrics:
         torch = self.torch
         prompt_ids, target_ids = self._training_ids(prompt, target)
         all_ids = prompt_ids + target_ids
@@ -145,7 +187,8 @@ class HuggingFaceCausalLMAdapter:
             labels=label_tensor,
         )
         loss = outputs.loss
-        loss.backward()
+        objective = loss if weight is None else loss * weight
+        objective.backward()
         if self.gradient_clip_norm is not None:
             torch.nn.utils.clip_grad_norm_(
                 [parameter for parameter in self.model.parameters() if parameter.requires_grad],

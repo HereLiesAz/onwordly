@@ -22,3 +22,14 @@ class ModelAdapter(Protocol):
 
     def train_example(self, prompt: str, target: str) -> TrainStepMetrics:
         ...
+
+    def sample(self, prompt: str, n: int, temperature: float) -> list[str]:
+        """``n`` independent sampled completions (on-policy training only)."""
+        ...
+
+    def train_weighted(self, prompt: str, completion: str, weight: float) -> TrainStepMetrics:
+        """One update on ``weight`` x the completion's mean negative log-likelihood.
+
+        ``tokens`` must equal ``count_training_tokens(prompt, completion)``.
+        """
+        ...

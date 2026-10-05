@@ -18,7 +18,9 @@ The following are **not claimed as Onwordly inventions**:
 | Synthetic data generation | Programmatically produce additional training examples. |
 | Process supervision | Evaluate intermediate reasoning or execution states. |
 | Outcome supervision | Evaluate final task success. |
-| GRPO/PPO-family RL | Optimize policies from relative or scalar rewards. |
+| GRPO/PPO-family RL | Optimize policies from relative or scalar rewards. Experiment 010's `verdict-rl` uses GRPO-style group-relative advantages (Shao et al., DeepSeekMath, arXiv:2402.03300) without clipping or KL; not an Onwordly invention. |
+| REINFORCE with a baseline | Policy gradient weighting sampled completions by reward minus a baseline (Williams 1992). 010's `verdict-rl` uses the group mean as baseline with an exact 0/1 reward; not an Onwordly invention. |
+| Answer-before-verdict verification | The verifier solves before judging (generative verifiers with CoT, e.g. GenRM arXiv:2408.15240). 010's `solve-judge-synthetic` is a minimal exact form; not an Onwordly invention. |
 | MCTS/search | Explore candidate trajectories before selecting or distilling them. |
 | Knowledge/trajectory distillation | Transfer expensive teacher/search behavior into a cheaper model. |
 | LoRA/parameter-efficient tuning | Adapt models without updating all parameters. |

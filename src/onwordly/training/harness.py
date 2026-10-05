@@ -22,6 +22,41 @@ class TaskSource:
         raise NotImplementedError
 
 
+@dataclass(frozen=True, slots=True)
+class OnPolicyConfig:
+    """Opt-in on-policy update for a task (Experiment 010, ``verdict-rl``).
+
+    A source opts a task in by returning this from ``on_policy_config(task)``.
+    Instead of one SFT step on the target, the harness samples ``samples``
+    completions at ``temperature``, rewards each 1/0 by the exact verifier,
+    and trains each with weight ``reward - mean(rewards)`` via
+    ``adapter.train_weighted`` (advantage-weighted negative log-likelihood).
+    This is REINFORCE with a group-mean baseline: GRPO-style group advantages
+    without ratio clipping, a KL penalty or reward-std normalisation. It is an
+    established method, not an Onwordly invention. A group whose rewards are
+    all equal has zero advantage everywhere and is skipped without an update.
+    """
+
+    samples: int = 4
+    temperature: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.samples < 2:
+            raise ValueError("on-policy groups need at least two samples")
+        if self.temperature <= 0.0:
+            raise ValueError("temperature must be positive")
+
+
+def group_advantages(rewards: Sequence[float]) -> list[float] | None:
+    """``reward - group mean`` per sample; ``None`` when every reward is equal."""
+    if not rewards:
+        raise ValueError("rewards must be non-empty")
+    if all(reward == rewards[0] for reward in rewards):
+        return None
+    mean = fmean(rewards)
+    return [reward - mean for reward in rewards]
+
+
 def _synchronize_adapter(adapter: ModelAdapter) -> None:
     synchronize = getattr(adapter, "synchronize", None)
     if callable(synchronize):
@@ -60,12 +95,22 @@ class TrainingRunResult:
     warmup_examples: int = 0
     bucket_stats: dict[str, dict[str, float | int]] = field(default_factory=dict)
     checkpoints: tuple[dict[str, object], ...] = ()
+    # On-policy accounting (Experiment 010); None, and omitted from to_dict,
+    # for every run without on-policy tasks. Its sampling calls/seconds are
+    # also included in generation_calls/generation_seconds.
+    on_policy: dict[str, float | int | None] | None = None
+
+    @property
+    def pre_update_attempts(self) -> int:
+        """Greedy pre-update attempts (generation calls minus on-policy samples)."""
+        samples = int(self.on_policy["sample_generation_calls"] or 0) if self.on_policy else 0
+        return self.generation_calls - samples
 
     @property
     def pretrain_accuracy(self) -> float:
-        if self.generation_calls == 0:
+        if self.pre_update_attempts == 0:
             return 0.0
-        return self.correct_before_train / self.generation_calls
+        return self.correct_before_train / self.pre_update_attempts
 
     @property
     def mean_training_tokens_per_example(self) -> float | None:
@@ -89,6 +134,8 @@ class TrainingRunResult:
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
+        if self.on_policy is None:
+            del payload["on_policy"]
         payload["pretrain_accuracy"] = self.pretrain_accuracy
         payload["mean_training_tokens_per_example"] = self.mean_training_tokens_per_example
         payload["token_budget_utilization"] = self.token_budget_utilization
@@ -121,6 +168,14 @@ def run_equal_token_training(
     so every regime keeps the same total. Pass the same tasks to every regime.
     Timing is split: generation_seconds, verifier_seconds and training_core_seconds
     (the update step alone) are recorded separately.
+
+    On-policy opt-in: when ``source.on_policy_config(task)`` returns an
+    ``OnPolicyConfig``, that task is trained by a group of sampled completions
+    (see ``OnPolicyConfig``) instead of SFT on its target. Every trained
+    (prompt, completion) pair counts its tokens toward ``token_budget``; a
+    group that would not fit ends training, as an SFT task would. Sampling is
+    billed as generation calls/seconds and sample checks as verifier calls,
+    and is also reported separately under ``on_policy``.
     """
     if token_budget < 1:
         raise ValueError("token_budget must be at least 1")
@@ -143,6 +198,11 @@ def run_equal_token_training(
     losses: list[float] = []
     buckets: dict[str, BucketRunStats] = {}
     checkpoints: list[dict[str, object]] = []
+    on_policy_for = getattr(source, "on_policy_config", None)
+    if not callable(on_policy_for):
+        on_policy_for = None
+    on_policy_stats: dict[str, float | int | None] | None = None
+    on_policy_losses: list[float] = []
 
     next_checkpoint = checkpoint_interval_tokens
     if checkpoint_callback is not None:
@@ -180,11 +240,13 @@ def run_equal_token_training(
     while True:
         task = source.next_task(rng)
         target = task.target_text
-        planned_tokens = adapter.count_training_tokens(task.prompt, target)
-        if planned_tokens < 1:
-            raise RuntimeError("adapter reported a non-positive training token count")
-        if training_tokens + planned_tokens > token_budget:
-            break
+        policy = on_policy_for(task) if on_policy_for is not None else None
+        if policy is None:
+            planned_tokens = adapter.count_training_tokens(task.prompt, target)
+            if planned_tokens < 1:
+                raise RuntimeError("adapter reported a non-positive training token count")
+            if training_tokens + planned_tokens > token_budget:
+                break
 
         _synchronize_adapter(adapter)
         started = perf_counter()
@@ -211,20 +273,86 @@ def run_equal_token_training(
         bucket.attempts += 1
         bucket.correct_before_train += int(correct)
 
-        update_started = perf_counter()
-        step = adapter.train_example(task.prompt, target)
-        if step.tokens != planned_tokens:
-            raise RuntimeError(
-                "adapter token accounting changed between planning and training: "
-                f"planned={planned_tokens}, actual={step.tokens}"
-            )
-        _synchronize_adapter(adapter)
-        training_core_seconds += perf_counter() - update_started
-        seen_examples.add((task.prompt, target))
+        if policy is not None:
+            if on_policy_stats is None:
+                on_policy_stats = {
+                    "samples_per_group": policy.samples,
+                    "temperature": policy.temperature,
+                    "groups": 0,
+                    "groups_trained": 0,
+                    "groups_skipped_equal_rewards": 0,
+                    "sample_generation_calls": 0,
+                    "sample_generation_seconds": 0.0,
+                    "sample_verifier_calls": 0,
+                    "samples_correct": 0,
+                    "weighted_updates": 0,
+                    "update_tokens": 0,
+                }
+            stats = on_policy_stats
+            _synchronize_adapter(adapter)
+            started = perf_counter()
+            completions = list(adapter.sample(task.prompt, policy.samples, policy.temperature))
+            _synchronize_adapter(adapter)
+            sampled = perf_counter()
+            if len(completions) != policy.samples:
+                raise RuntimeError("adapter returned the wrong number of samples")
+            generation_seconds += sampled - started
+            generation_calls += len(completions)
+            generated_characters += sum(len(completion) for completion in completions)
+            rewards = [float(verifier(task, completion)) for completion in completions]
+            verifier_seconds += perf_counter() - sampled
+            verifier_calls += len(completions)
+            stats["groups"] += 1
+            stats["sample_generation_calls"] += len(completions)
+            stats["sample_generation_seconds"] += sampled - started
+            stats["sample_verifier_calls"] += len(completions)
+            stats["samples_correct"] += int(sum(rewards))
+            advantages = group_advantages(rewards)
+            if advantages is None:
+                stats["groups_skipped_equal_rewards"] += 1
+                continue
+            pairs = [
+                (completion, advantage)
+                for completion, advantage in zip(completions, advantages)
+                if advantage != 0.0
+            ]
+            counts = [adapter.count_training_tokens(task.prompt, completion) for completion, _ in pairs]
+            if min(counts) < 1:
+                raise RuntimeError("adapter reported a non-positive training token count")
+            if training_tokens + sum(counts) > token_budget:
+                break
+            for (completion, advantage), planned in zip(pairs, counts):
+                update_started = perf_counter()
+                step = adapter.train_weighted(task.prompt, completion, advantage)
+                if step.tokens != planned:
+                    raise RuntimeError(
+                        "adapter token accounting changed between planning and training: "
+                        f"planned={planned}, actual={step.tokens}"
+                    )
+                _synchronize_adapter(adapter)
+                training_core_seconds += perf_counter() - update_started
+                seen_examples.add((task.prompt, completion))
+                training_tokens += step.tokens
+                examples_trained += 1
+                on_policy_losses.append(step.loss)
+                stats["weighted_updates"] += 1
+                stats["update_tokens"] += step.tokens
+            stats["groups_trained"] += 1
+        else:
+            update_started = perf_counter()
+            step = adapter.train_example(task.prompt, target)
+            if step.tokens != planned_tokens:
+                raise RuntimeError(
+                    "adapter token accounting changed between planning and training: "
+                    f"planned={planned_tokens}, actual={step.tokens}"
+                )
+            _synchronize_adapter(adapter)
+            training_core_seconds += perf_counter() - update_started
+            seen_examples.add((task.prompt, target))
 
-        training_tokens += step.tokens
-        examples_trained += 1
-        losses.append(step.loss)
+            training_tokens += step.tokens
+            examples_trained += 1
+            losses.append(step.loss)
 
         if (
             checkpoint_callback is not None
@@ -256,6 +384,9 @@ def run_equal_token_training(
                 }
             )
 
+    if on_policy_stats is not None:
+        on_policy_stats["mean_sample_nll"] = fmean(on_policy_losses) if on_policy_losses else None
+
     bucket_payload = {
         key: {
             "attempts": value.attempts,
@@ -283,4 +414,5 @@ def run_equal_token_training(
         warmup_examples=warmup_examples,
         bucket_stats=bucket_payload,
         checkpoints=tuple(checkpoints),
+        on_policy=on_policy_stats,
     )

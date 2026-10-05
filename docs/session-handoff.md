@@ -196,12 +196,21 @@ Answer to 008's result: the move is a judgement. Shown a proposal (right with p 
 
 Verdict move collapsed to acceptance: verdict-mixed answers `right` to everything (balanced 50.0%); verdict-synthetic catches 13.4% of wrong proposals (balanced 51.9%), repairs every catch. Self-check: 1 fix, 0 breaks. Both verdict arms below static on held-out and out-of-range. Third shortcut after 008's copy/ignore. See `experiments/009-verdict-language-game/RESULTS.md`. Next: seeds; then verdict budget, answer-before-verdict format, or RL with exact reward.
 
+## Experiment 010 — verdict repair (prepared 2026-10-05)
+
+One arm per untested explanation of 009's accept collapse, each a single change from `verdict-synthetic`. `verdict-dense`: verdict rate 1.0 (`dense_verdict_rate`), so about 3x more verdict moves. `solve-judge-synthetic`: the reply is `<n>; right|wrong`, answer before verdict (`src/onwordly/tasks/solve_judge.py`). `verdict-rl`: on-policy verdict updates, with 4 samples at T = 1.0, exact 0/1 reward and advantage = reward − group mean. This is REINFORCE with a group-mean baseline, no clipping or KL. Arithmetic stays SFT. Controls: `static` and `verdict-synthetic`.
+
+Harness: a source opts tasks in through `on_policy_config(task)` → `OnPolicyConfig`. Sampled pairs count toward the token budget. Sampling counts as generation calls and seconds, and is reported separately in `training.on_policy`. Adapters gained `sample` and `train_weighted`. SFT runs are unchanged: identical results against the previous code apart from added keys. The added keys are `format`, the per-class `class_counts` (for shown proposals and the self-check) and the new manifest fields, which change fingerprints.
+
+Reading: an arm works if balanced accuracy is clearly above 50% without right-shown collapsing. One seed is provisional. Kaggle: `experiment: 010` (notebook default) or batch `jobs: 010`; the suite is gated. See `experiments/010-verdict-repair/README.md`.
+
 ## Literature review (2026-10-05)
 
 Nearest prior work for 008/009 recorded in `docs/novelty-ledger.md`; full review in `reports/Self correction and verifier training.md`; positioning and next experiments in `docs/positioning.md`. Defensible contribution is the controlled comparison, not any technique.
 
 ## Exact next actions
 
+0. Run Experiment 010 single (Kaggle notebook, T4 x2, about 3–3.5 h) and record the provisional reading in `experiments/010-verdict-repair/RESULTS.md`. Before that, run a real-model smoke with `smoke-manifest.json` to check `sample`/`train_weighted` on GPU.
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.
 2. Remove the local `ci.yml` / `experiment.yml` implementations through the central controller and get a central `ci-validation` run green.
 3. Run the batch (`jobs: 001-suite,002`, seeds 3303, 4404, 5505) on Kaggle T4 x2 and record the aggregate; Experiment 001 run 16 (post-fix code, one seed) is the first valid result.
