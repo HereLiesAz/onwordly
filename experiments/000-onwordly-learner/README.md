@@ -89,6 +89,8 @@ passes per problem, the plain net 1.
 | `learner-flat` | update weight = 1 (ablates confidence × surprise) |
 | `learner-no-memory` | register read zeroed (store still written) |
 | `learner-no-trust` | ledger read zeroed |
+| `learner-self-memory` | diagnostic: register read uses only `source="self"` fillers (no corrector proposals, no verifier), in training and evaluation |
+| `learner-memory-dropout` | diagnostic: in training, with probability `memory_dropout` (default 0.5) per problem, the register read (both passes) is replaced by the empty-register encoding; separate RNG stream, so problem and challenge order are unchanged; evaluation unchanged |
 | `plain` | one-pass 3-hidden-layer MLP, supervised cross-entropy, same problems and steps |
 | `handcoded` | `plain`'s answers + an aive-style rule. Under "you are wrong", change to the proposal only if the corrector's raw success rate is ≥ 0.7, beats the domain's self success rate, and its three-strike breaker is closed. Otherwise hold. The ledger is built during `plain`'s training from challenges to its pre-update drafts. Reference point, reported separately. |
 
@@ -129,6 +131,45 @@ passes per problem, the plain net 1.
 
 A null result is a result.
 
+## Memory diagnostics
+
+Added after the first full run (`RESULTS.md` on the run branch): every arm that
+reads the register collapsed (≤ 0.7% held-out solve) while
+`learner-no-memory` reached 75.3%. Hypothesis: the register is a train-time
+answer channel. Training rule sets are revisited ~13×, so the register holds
+that frame's earlier fillers, including corrector proposals (A is right 90%);
+held-out frames arrive with an empty register, a condition seen on ~1 in 13
+training visits. Existing arms' behaviour is unchanged by the diagnostics.
+
+Reported for every memory-reading arm (`memory_diagnostics` in the arm JSON,
+"Memory diagnostics" table in `RESULTS.md`):
+
+- **Training reads** (`training.register_diagnostics`): fraction of
+  solve-pass training reads (before that visit's writes) where the readable
+  register was non-empty, and where its top non-self filler (by count) is a
+  valid answer; dropped fraction for the dropout arm.
+- **(1) Training-frame probe:** `probe_size` (default 512) training problems,
+  a fixed sample (`Random("<evaluation_seed>:register-probe")`), after
+  training, eval mode, read-only on an eval view. Accuracy with the register
+  as built vs emptied (empty-register encoding), plus the same non-empty /
+  top-other-is-target fractions.
+- **(2) Held-out second visit:** attempt 1 on held-out frames (empty
+  register); only the model's own attempt-1 answer is written into a forked
+  eval register; attempt 2 reads it. Accuracy for both visits.
+- **(3) `learner-self-memory`** and **(4) `learner-memory-dropout`**: arms
+  above, same matched budget (optimizer steps × problems, same order).
+
+Manifest fields: `memory_dropout` (default 0.5, in [0, 1]), `probe_size`
+(default 512; smoke 32).
+
+**Pre-registered reading.** If (1) shows a large drop on emptying (as-is ≫
+emptied) for `learner` and (3) and/or (4) recover held-out solve accuracy
+toward `learner-no-memory`, the answer-channel hypothesis holds. If emptying
+costs little and neither arm recovers, the collapse has another cause (look
+at the memory input path itself). (2) says whether the model's own earlier
+answer helps or hurts on a revisit; it is descriptive, not a fix. One seed is
+provisional.
+
 ## Honest risks
 
 - Witness supervision: cross-entropy targets one witness, but any valid string
@@ -159,6 +200,13 @@ about 0.25 s per plain step including the hand-coded ledger loop. On one T4,
 the Python memory and feature loop dominates. The estimate is about 1–2 h for
 all six arms (4 learner trainings + 1 plain). That is unmeasured. Run the
 smoke manifest first.
+
+With the two diagnostic arms (6 learner trainings + 1 plain): at ~0.6 s per
+learner step, each learner arm is ~40 min for 4000 steps, so add ~1.5 h; the
+probes add a few minutes per memory arm (512 + 2 × eval_size solves).
+Estimate ~2.5–3.5 h on one T4, unmeasured. To run only the diagnostics, set
+`arms: learner,learner-no-memory,learner-self-memory,learner-memory-dropout`
+in `.kaggle-run` (~2–2.5 h).
 
 ## How to run
 

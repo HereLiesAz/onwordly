@@ -22,6 +22,9 @@ from onwordly.learner.train import (
     evaluate_challenges,
     handcoded_decider,
     learner_decider,
+    probe_sample,
+    probe_second_visit,
+    probe_training_frames,
     solve_learner,
     solve_metrics,
     solve_plain,
@@ -72,6 +75,7 @@ def run_learner_experiment(
         OnwordlyLearner(encoding, d_model=manifest.d_model, layers=manifest.layers, heads=manifest.heads)
     )
     plain_hidden = matched_plain_hidden(encoding, learner_params)
+    probe_tasks = probe_sample(manifest, train_tasks)
     conditions = [(Corrector(n, r), True) for n, r in manifest.correctors] + [(Corrector(*manifest.unseen_corrector), False)]
     summary: dict[str, object] = {
         "experiment": "000-onwordly-learner",
@@ -105,10 +109,18 @@ def run_learner_experiment(
                 eval_tasks, drafts, decide=learner_decider(model, variant, manifest.revision_steps, device),
                 memory=memory, conditions=conditions, seed=manifest.evaluation_seed,
             )
+            diagnostics = None
+            if variant.use_memory:
+                steps = manifest.revision_steps
+                diagnostics = {
+                    "training_frames": probe_training_frames(model, memory, variant, probe_tasks, steps, device),
+                    "second_visit": probe_second_visit(model, memory, variant, eval_tasks, steps, device),
+                }
             summary["arms"][arm] = {
                 "parameters": parameter_count(model),
                 "training": log.to_dict(),
                 "memory": memory.report(),
+                "memory_diagnostics": diagnostics,
                 "solve": solve_metrics(eval_tasks, answers, confs),
                 "challenge": challenge,
                 "wall_seconds": perf_counter() - started,
@@ -189,6 +201,27 @@ def render_result(summary: dict) -> str:
                 f"{_pct(c['hold_rate_right_under_wrong_challenge'])} | {_pct(c['change_rate_wrong_under_correct_challenge'])} "
                 f"({_pct(c['change_to_correct_rate_wrong_under_correct_challenge'])}) | {_pct(c['hold_rate_when_said_wrong'])} | "
                 f"{_num(c['hold_discrimination'])} | {_pct(c['final_accuracy'])} | {_num(c['decision_calibration']['ece'])} |"
+            )
+    diag = [(arm, r) for arm, r in summary["arms"].items() if r.get("memory_diagnostics")]
+    if diag:
+        lines += [
+            "",
+            "## Memory diagnostics (register as answer channel?)",
+            "",
+            "Training reads: solve-pass register reads during training (before that visit's writes). "
+            "Probe: fixed sample of training problems after training, eval mode, read-only. "
+            "Second visit: held-out frames, attempt 2 reads only the model's own attempt-1 answer.",
+            "",
+            "| Arm | Train reads non-empty | Train top other = target | Dropped | Probe as-is | Probe emptied | Drop | Probe non-empty | Held-out visit 1 | Visit 2 |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for arm, r in diag:
+            t, d = r["training"]["register_diagnostics"], r["memory_diagnostics"]
+            p, v = d["training_frames"], d["second_visit"]
+            lines.append(
+                f"| {arm} | {_pct(t['nonempty_fraction'])} | {_pct(t['top_other_is_target_fraction'])} | {_pct(t['dropped_fraction'])} | "
+                f"{_pct(p['accuracy_register_as_is'])} | {_pct(p['accuracy_register_emptied'])} | {_pct(p['drop_on_emptying'])} | "
+                f"{_pct(p['register_nonempty_fraction'])} | {_pct(v['accuracy_first_visit'])} | {_pct(v['accuracy_second_visit'])} |"
             )
     lines += ["", "Hold tracks reliability (hold-when-told-wrong, unreliable minus reliable corrector):", ""]
     for arm, r in summary["arms"].items():

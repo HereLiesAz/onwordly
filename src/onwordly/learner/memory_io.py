@@ -6,7 +6,8 @@ proposal, final and verifier fillers per frame) and the ``TrustLedger``
 (training outcomes only). Reads turn a frame's register summary and the ledger
 estimates into input features.
 
-Register reads exclude ``verifier`` fillers: on a revisited training frame
+Register reads exclude ``verifier`` fillers (``sources="self"`` additionally
+excludes corrector proposals): on a revisited training frame
 they would hand the network the answer, a shortcut that cannot exist on
 held-out frames. The verifier filler is still stored.
 
@@ -61,10 +62,38 @@ class LearnerMemory:
 
     # --- reads -----------------------------------------------------------------
 
-    def read(self, task: ConstrainedTask) -> tuple[list[float], list[list[float]]]:
-        """(global [log-count, distinct fillers, divergent], per-slot [self hist | others hist])."""
+    def _excluded(self, task: ConstrainedTask, sources: str) -> tuple[str, ...]:
+        if sources == "all":
+            return ("verifier",)
+        if sources == "self":
+            # Own fillers only: drop corrector proposals and the verifier.
+            return tuple({e.source for e in self.register.entries(frame_for(task))} - {"self"}) or ("verifier",)
+        raise ValueError(f"unknown register sources: {sources}")
+
+    def empty_read(self) -> tuple[list[float], list[list[float]]]:
+        """Exactly what ``read`` returns for a frame with no readable fillers."""
         enc = self.encoding
-        summary = self.register.summary(frame_for(task), exclude_sources=("verifier",), cap=self.register_cap)
+        return [0.0] * MEMORY_GLOBAL_DIM, [[0.0] * (2 * enc.vocab) for _ in range(enc.slots)]
+
+    def register_stats(self, task: ConstrainedTask, sources: str = "all") -> tuple[bool, str | None]:
+        """(register readable for this frame is non-empty, top non-self filler by count or None).
+        Diagnostic only; ties go to the most recent entry."""
+        summary = self.register.summary(frame_for(task), exclude_sources=self._excluded(task, sources), cap=self.register_cap)
+        others = [(count, i, filler) for i, (filler, source, count) in enumerate(summary.entries) if source != "self"]
+        return summary.total > 0, (max(others)[2] if others else None)
+
+    def write_self_filler(self, task: ConstrainedTask, filler: str) -> None:
+        """Register-only write of the model's own answer (eval views only:
+        used by the held-out second-visit probe)."""
+        if self.partition != "eval":
+            raise RuntimeError("write_self_filler is for evaluation views only")
+        self._add(task, filler, "self")
+
+    def read(self, task: ConstrainedTask, sources: str = "all") -> tuple[list[float], list[list[float]]]:
+        """(global [log-count, distinct fillers, divergent], per-slot [self hist | others hist]).
+        ``sources="self"`` reads only the model's own fillers."""
+        enc = self.encoding
+        summary = self.register.summary(frame_for(task), exclude_sources=self._excluded(task, sources), cap=self.register_cap)
         mine = [[0.0] * enc.vocab for _ in range(enc.slots)]
         others = [[0.0] * enc.vocab for _ in range(enc.slots)]
         weight = {"self": 0, "other": 0}

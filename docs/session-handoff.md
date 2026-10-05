@@ -10,7 +10,7 @@
 
 ## Experiment 000
 
-Prepared and CPU-tested (tiny end-to-end run in `tests/learner/`); no full run. Question, arms, matched budget, evaluation, pre-registered reading, risks and runtime estimate: `experiments/000-onwordly-learner/README.md`. Code: `src/onwordly/learner/`, `src/onwordly/memory/`.
+One full run recorded (`RESULTS.md`); diagnostics merged. Question, arms, matched budget, evaluation, pre-registered reading, risks and runtime estimate: `experiments/000-onwordly-learner/README.md`. Code: `src/onwordly/learner/`, `src/onwordly/memory/`.
 
 ## Execution
 
@@ -18,10 +18,14 @@ Prepared and CPU-tested (tiny end-to-end run in `tests/learner/`); no full run. 
 - Notebook: `notebooks/experiment_kaggle.ipynb` runs 000 and publishes results via `onwordly.publish` in a `finally` (upload failure is non-fatal).
 - CI: `.github/workflows/ci.yml` (local; per the centralization rule it should move to the central controller). Torch-dependent tests skip when torch is not installed, and CI installs only `.[dev]`.
 
+## Experiment 000 first full run (one seed)
+
+Results in `experiments/000-onwordly-learner/RESULTS.md`: every register-reading arm collapsed (≤ 0.7% held-out solve); `learner-no-memory` 75.3% with earned-trust behaviour. Hypothesis: register is a train-time answer channel. Diagnostics merged (training-frame probe, held-out second visit, `learner-self-memory`, `learner-memory-dropout`; see the 000 README "Memory diagnostics").
+
 ## Next actions
 
-1. Re-enable `.github/workflows/kaggle-experiment.yml` (and CI) or run the notebook by hand; verify a run actually starts before recording it as dispatched.
-2. Diagnose the memory collapse with the four tests in the 000 RESULTS reading before changing the design.
+1. Run 000 with the diagnostic arms (`arms: learner,learner-no-memory,learner-self-memory,learner-memory-dropout`) by hand on Kaggle (the hand-off workflow is disabled), and read it against the pre-registered memory-diagnostics criteria before changing the memory design.
+2. Run 17 (verdict prior), if still wanted: by hand from `archive/llm-phase`. Run 18 (000 smoke) is superseded by the full run.
 3. Run 000 single with the full manifest; record the provisional reading against the pre-registered criteria.
 4. Seeds (≥ 3) before attributing any effect to a component.
 5. Move CI to the central controller; decide whether CI should install CPU torch so learner tests run there.
