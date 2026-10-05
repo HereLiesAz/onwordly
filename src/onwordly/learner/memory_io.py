@@ -13,7 +13,9 @@ held-out frames. The verifier filler is still stored.
 
 Evaluation uses ``eval_view()``: same frozen ledger, a forked register and a
 fresh scratch store, so nothing evaluation writes can reach training memory,
-and the ledger raises on any update.
+and the ledger raises on any update. ``eval_view(..., register_verifier=True)``
+(the recurring-frame evaluation) also stores the verifier filler in the forked
+register, exactly as training does; reads still exclude it.
 """
 from __future__ import annotations
 
@@ -45,8 +47,9 @@ class LearnerMemory:
         self.ledger = TrustLedger(self.store, prior=prior, half_life=half_life, max_evidence=max_evidence)
         self.step = 0
         self.divergences = 0
+        self.register_verifier = partition == "train"
 
-    def eval_view(self, context: str) -> "LearnerMemory":
+    def eval_view(self, context: str, *, register_verifier: bool = False) -> "LearnerMemory":
         self.ledger.freeze()
         view = LearnerMemory.__new__(LearnerMemory)
         view.encoding = self.encoding
@@ -58,6 +61,7 @@ class LearnerMemory:
         view.ledger = self.ledger
         view.step = self.step
         view.divergences = 0
+        view.register_verifier = register_verifier
         return view
 
     # --- reads -----------------------------------------------------------------
@@ -188,8 +192,9 @@ class LearnerMemory:
         )
         if final is not None and final != challenge.first:
             self._add(task, final, "self")
+        if self.register_verifier:
+            self._add(task, task.witness, "verifier")  # stored, never read (see module docstring)
         if self.partition == "train":
-            self._add(task, task.witness, "verifier")
             self.ledger.record("self", task.domain, decision_ok, step=self.step, partition="train", links=(verdict.index,))
             self.ledger.record(
                 "corrector", challenge.corrector, challenge.challenge_correct, step=self.step, partition="train",

@@ -58,11 +58,7 @@
   "memory_dropout": 0.5,
   "probe_size": 32,
   "arms": [
-    "learner",
-    "learner-flat",
     "learner-no-memory",
-    "learner-no-trust",
-    "learner-self-memory",
     "learner-memory-dropout",
     "learner-first-visit",
     "plain",
