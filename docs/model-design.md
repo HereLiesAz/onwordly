@@ -35,7 +35,15 @@ Assessed against aive (`HereLiesAz/aive`, docs/Memory-layer.md and docs/architec
 - **Noticing was forbidden along with judging.** No non-judging component may say "these differ", so contradictions reach the reasoner only by luck of ranking and attention budget. Here: the divergence marker.
 - **No handoff contract.** No trigger, timing, or evidence set; conclusions bank as untyped context and can be condensed into one side. Here: the deliberation record.
 - **Popularity wins.** Condensation strengthens shared associations, so the majority wording outranks dissent. In a learner this makes the most common mistake the remembered default. Here: condense only verified-identical items.
-- **Condensation drifted from its purpose.** It was designed for genuinely repeated events — the same event occurring again — and widened in code to "similar enough". Here: condensation folds true repeats only (identical after normalization), keeping a count, every occurrence's time and provenance. Near-repeats are not merged; they get a divergence marker. Repetition count is itself evidence: a mistake made ten times is a pattern for the reasoner, not a strengthened default.
+- **Similarity conflated frame with filler.** "Similar enough" is right — close to how people remember — but surface similarity treats "I chose Postgres" and "I chose MySQL" as near-identical (same frame; embeddings place co-hyponyms and antonyms close). To a person they are opposites. Here, similarity is two-part:
+
+  | Frame (what it's about) | Filler (what it says) | Relation | Action |
+  | --- | --- | --- | --- |
+  | same | same or synonymous | similar | condense; keep count, times, provenance |
+  | same | different | **contrast** | never merge; divergence marker; recall both sides together |
+  | different | any | unrelated / associated | link at most |
+
+  Detection is structural, not a truth judgment: align, diff; shared structure + differing content words (entities, values, choices) = contrast; an alias table keeps synonyms ("Postgres"/"PostgreSQL") from counting. The clerk says "same question, different answer"; the reasoner decides. Repetition count from condensation is evidence: a mistake made ten times is a pattern for the reasoner, not a strengthened default.
 - **Scale by hiding.** Growth pressure pushes toward more condensation. Here: tier access, keep everything recallable, cap the injected payload instead.
 - **Erasure outside the model.** Here: the single audited exception — purge, tombstone, re-derive.
 
