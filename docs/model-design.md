@@ -18,6 +18,8 @@ The archived Experiments 008–009 (`docs/findings-llm-phase.md`) failed in one 
 
 ## Childhood, pubescence, adulthood
 
+This is the guiding mindset, not a mechanism to implement literally. Current experiments are childhood: self-trust should not appear yet, and any self-trust a model shows now is a symptom to remove, not a capability to measure.
+
 Trust develops in two stages separated by a tipping point, per domain.
 
 - **Childhood — trust in teachers.** Self-trust carries no weight. The model trusts its teachers and what they taught it, and defends taught answers against other challengers to the bitter end ("my dad is bigger than your dad"). A teacher can still correct it; others cannot. Memory records who taught what, so authority attaches to sources.
