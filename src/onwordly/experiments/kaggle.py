@@ -43,7 +43,12 @@ DEFAULT_MANIFESTS: dict[str, str] = {
     "008": "experiments/008-corrective-language-game/manifest.json",
     "009": "experiments/009-verdict-language-game/manifest.json",
     "010": "experiments/010-verdict-repair/manifest.json",
+    "011": "experiments/011-verdict-constrained-strings/manifest.json",
 }
+
+# Verdict prior diagnostic (no training): default model and problem count.
+PRIOR_DEFAULT_MODELS = "Qwen/Qwen2.5-0.5B"
+PRIOR_DEFAULT_N = "200"
 
 # Experiment 010: repair levers for 009's accept collapse (budget,
 # answer-before-verdict ordering, on-policy reward, graded two-turn self-check
@@ -134,6 +139,22 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
                 (key, values[key]) for key in ("models", "chat_template", "per_split") if key in values
             ),
         )
+    if experiment == "prior":
+        # Untrained verdict prior on 009's held-out problems; one GPU, minutes.
+        known = {"experiment", "mode", "backend", "accelerator", "run", "manifest", "models", "n"}
+        unknown = set(values) - known
+        if unknown:
+            raise ValueError(f"unsupported prior plan keys: {sorted(unknown)}")
+        n = values.get("n", PRIOR_DEFAULT_N)
+        if not n.isdigit() or int(n) < 1:
+            raise ValueError("n must be a positive integer")
+        return KaggleRunPlan(
+            experiment=experiment,
+            mode="single",
+            manifest=values.get("manifest", DEFAULT_MANIFESTS["009"]),
+            seeds=seeds,
+            options=(("models", values.get("models", PRIOR_DEFAULT_MODELS)), ("n", n)),
+        )
     if experiment not in DEFAULT_MANIFESTS:
         raise ValueError(f"unsupported experiment: {experiment}")
     if mode not in {"single", "suite"}:
@@ -158,6 +179,8 @@ def load_run_plan(path: str | Path) -> KaggleRunPlan:
                 f"Experiment {experiment} needs a manifest with verdict_evaluation_size > 0; "
                 f"{manifest} has none (use {DEFAULT_MANIFESTS[experiment]})"
             )
+    if experiment == "011" and mode == "suite":
+        raise ValueError("Experiment 011 suite is gated until a single run is inspected")
     if experiment == "010" and mode == "suite":
         raise ValueError("Experiment 010 suite is gated until a single run is inspected")
     if experiment == "009" and mode == "suite":
@@ -276,6 +299,39 @@ def execute_run_plan(plan: KaggleRunPlan, output_root: str | Path) -> Path:
 
     if plan.experiment == "baseline":
         return _execute_baseline(plan, root)
+
+    if plan.experiment == "prior":
+        from onwordly.diagnostics.verdict_prior import run_models
+
+        options = dict(plan.options)
+        output = root / "verdict-prior"
+        run_models(
+            [model.strip() for model in options["models"].split(",") if model.strip()],
+            manifest_path=plan.manifest,
+            n=int(options["n"]),
+            output_dir=output,
+        )
+        return output
+
+    if plan.experiment == "011":
+        from onwordly.experiments.constrained_strings import (
+            CONSTRAINED_VERDICT_REGIMES,
+            ConstrainedExperimentManifest,
+            render_constrained_result,
+            run_constrained_experiment,
+        )
+
+        output = root / "011-verdict-constrained-strings"
+        # One worker process per regime, queued over every visible GPU; the
+        # in-process call then loads the finished regimes and writes the summary.
+        run_units(
+            [(plan.manifest, str(output), regime) for regime in CONSTRAINED_VERDICT_REGIMES],
+            devices=max(1, gpu_count()),
+            module="onwordly.experiments.constrained_strings",
+        )
+        run_constrained_experiment(ConstrainedExperimentManifest.from_json(plan.manifest), output_dir=output)
+        (output / "RESULTS.md").write_text(render_constrained_result(output / "summary.json"), encoding="utf-8")
+        return output
 
     if plan.experiment == "007":
         program_manifest = ProgramExperimentManifest.from_json(plan.manifest)

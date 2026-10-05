@@ -204,6 +204,14 @@ Harness: a source opts tasks in through `on_policy_config(task)`, which returns 
 
 Reading: an arm works if balanced accuracy is clearly above 50% without right-shown collapsing. One seed is provisional. Kaggle: `experiment: 010` (notebook default) or batch `jobs: 010`; the suite is gated. See `experiments/010-verdict-repair/README.md`.
 
+## Verdict prior diagnostic (prepared 2026-10-05)
+
+No training. `src/onwordly/diagnostics/verdict_prior.py` scores, for an untrained model on the first n of 009's held-out problems (same near misses as 009's evaluation), logp of `right`, `wrong` and `wrong: <answer>` after the 009 verdict prompt. It does this with the correct answer, a near miss, and the model's own greedy wrong answer shown. Reports: prefers-right fraction, mean margin, and discrimination (AUROC and paired rate of correct-shown margin > wrong-shown margin). Adapters gained `continuation_logprob` (HF; `ScoringAdapter` protocol in `models/base.py`; `ModelAdapter` unchanged). Kaggle: `experiment: prior` with optional `models:` (comma list, e.g. adding `Qwen/Qwen2.5-0.5B-Instruct`) and `n:` (default 200). See `docs/verdict-prior.md`. The full-reply margin is length-biased; read it only through discrimination.
+
+## Experiment 011 — verdict on constrained strings (prepared 2026-10-05)
+
+Hypothesis: self-correction is learnable where checking is cheaper than producing; arithmetic (009/010) has no such asymmetry. 011 is a new constrained-string generation task (`src/onwordly/tasks/constrained_strings.py`; not 004's transformations): 5 independent exact rules, any valid string accepted, s(x) = fraction of rules satisfied. The rule-set-hashed split keeps held-out rule sets out of training. Arms: `static`, `verdict-synthetic` (balanced SFT `right` / `wrong: <witness>` on one-edit violations), `selfcheck-rl-binary` and `selfcheck-rl-graded`. The RL arms are two-turn episodes on 010's on-policy harness. The graded reward is 1.0 / −0.5 / 0.6 / 0.3 + 0.1·s(repair) / 0.2·s(turn 1) / 0, as named constants in `training/constrained_sources.py`. Evaluation: valid fraction and mean s; 010's per-class shown/self-check counts; mean s(final). Kaggle: `experiment: 011` (single; suite gated). It runs four worker processes over both GPUs via `run_units(..., module=...)`; the default module is unchanged. Estimated 1.5–2 h on T4 x2 (unmeasured). Reading: 011 works where 010 doesn't → asymmetry is the variable. See `experiments/011-verdict-constrained-strings/README.md`.
+
 ## Literature review (2026-10-05)
 
 Nearest prior work for 008/009 recorded in `docs/novelty-ledger.md`; full review in `reports/Self correction and verifier training.md`; positioning and next experiments in `docs/positioning.md`. Defensible contribution is the controlled comparison, not any technique.
@@ -211,6 +219,8 @@ Nearest prior work for 008/009 recorded in `docs/novelty-ledger.md`; full review
 ## Exact next actions
 
 0. Run Experiment 010 single (Kaggle notebook, T4 x2, about 4–4.5 h for seven regimes; estimated, not measured) and record the provisional reading in `experiments/010-verdict-repair/RESULTS.md`. Before that, run a real-model smoke with `smoke-manifest.json` to check `sample`/`train_weighted` on GPU.
+0a. Run the verdict prior (`experiment: prior`, add the Instruct model). It takes minutes and tells whether 009's accept collapse was already the base model's prior.
+0b. After 010's single run, run Experiment 011 single (smoke manifest first) and compare it with 010 under the pre-registered reading.
 1. Establish what happened to run-plan revisions 14 and 15 (Kaggle push confirmation and final status) and record it here; Actions are currently disabled.
 2. Remove the local `ci.yml` / `experiment.yml` implementations through the central controller and get a central `ci-validation` run green.
 3. Run the batch (`jobs: 001-suite,002`, seeds 3303, 4404, 5505) on Kaggle T4 x2 and record the aggregate; Experiment 001 run 16 (post-fix code, one seed) is the first valid result.

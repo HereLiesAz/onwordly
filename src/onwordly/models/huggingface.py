@@ -157,6 +157,27 @@ class HuggingFaceCausalLMAdapter:
             for row in output
         ]
 
+    def continuation_logprob(self, prompt: str, continuation: str) -> float:
+        """Summed log-probability of ``continuation`` (plus EOS) after ``prompt``.
+
+        Uses the exact tokenisation of training (``_training_ids``), so it scores
+        the reply as a complete answer in the format the model is trained on.
+        Read-only: no gradient, no optimizer step.
+        """
+        torch = self.torch
+        prompt_ids, target_ids = self._training_ids(prompt, continuation)
+        input_ids = torch.tensor([prompt_ids + target_ids], dtype=torch.long, device=self.device)
+        was_training = self.model.training
+        self.model.eval()
+        with torch.no_grad():
+            logits = self.model(input_ids=input_ids).logits[0].float()
+        if was_training:
+            self.model.train()
+        # Position i predicts token i + 1.
+        log_probs = torch.log_softmax(logits[len(prompt_ids) - 1 : -1], dim=-1)
+        targets = torch.tensor(target_ids, dtype=torch.long, device=self.device)
+        return float(log_probs.gather(1, targets.unsqueeze(1)).sum().cpu())
+
     def train_example(self, prompt: str, target: str) -> TrainStepMetrics:
         return self._train_step(prompt, target, None)
 

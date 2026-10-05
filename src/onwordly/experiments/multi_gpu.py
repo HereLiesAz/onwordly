@@ -38,12 +38,19 @@ def assign_regimes(regimes: Sequence[str], devices: int) -> list[list[str]]:
     return [bucket for bucket in buckets if bucket]
 
 
-def run_units(units: Sequence[tuple[str, str, str]], devices: int) -> None:
+def run_units(
+    units: Sequence[tuple[str, str, str]],
+    devices: int,
+    *,
+    module: str = "onwordly.experiments.multi_gpu",
+) -> None:
     """Run (manifest_path, output_dir, regime) units on a GPU queue.
 
     Each free GPU takes the next unit, so GPUs stay busy across experiments of
     different lengths. Units already finished on disk are skipped by
-    ``run_experiment``'s resume check inside the worker.
+    ``run_experiment``'s resume check inside the worker. ``module`` is the
+    worker entry point; it must accept ``--manifest --output --regimes``
+    (Experiment 011 passes ``onwordly.experiments.constrained_strings``).
     """
     import time
 
@@ -57,7 +64,7 @@ def run_units(units: Sequence[tuple[str, str, str]], devices: int) -> None:
                 manifest_path, output_dir, regime = unit
                 env = {**os.environ, "CUDA_VISIBLE_DEVICES": str(device)}
                 command = [
-                    sys.executable, "-m", "onwordly.experiments.multi_gpu",
+                    sys.executable, "-m", module,
                     "--manifest", manifest_path, "--output", output_dir, "--regimes", regime,
                 ]
                 print(f"GPU {device}: {regime} -> {output_dir}", flush=True)

@@ -33,3 +33,15 @@ class ModelAdapter(Protocol):
         ``tokens`` must equal ``count_training_tokens(prompt, completion)``.
         """
         ...
+
+
+@runtime_checkable
+class ScoringAdapter(Protocol):
+    """Optional read-only scoring used by diagnostics (``diagnostics/verdict_prior.py``)."""
+
+    def generate(self, prompt: str) -> str:
+        ...
+
+    def continuation_logprob(self, prompt: str, continuation: str) -> float:
+        """Summed log-probability of ``continuation`` as a complete reply to ``prompt``."""
+        ...
