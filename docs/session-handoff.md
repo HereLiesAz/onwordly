@@ -5,7 +5,7 @@
 - Clean slate. Onwordly is now the earned-trust / conscious-judgment / add-only-memory learner (`docs/model-design.md`). Work starts at Experiment 000.
 - The LLM phase (Experiments 001–011, reports, notes, scripts) is archived on branch `archive/llm-phase` (commit `c35b185`). Findings: `docs/findings-llm-phase.md`.
 - **Run 17 (verdict prior) never ran.** The `.kaggle-run` change merged at `c35b185`, but the Kaggle hand-off workflow (and CI) has been `disabled_manually` since 2026-10-01, so nothing was dispatched. Its code exists only on `archive/llm-phase`.
-- **Experiment 000 first full run (by hand on Kaggle, one seed):** memory-reading arms collapsed (≤ 0.7% solve); learner-no-memory reached 75.3% solve and showed earned-trust behaviour (hold tracks corrector reliability by 0.488; post-challenge accuracy 86.9–97.8% vs plain 80.2%). Suspected cause: register acts as a train-time answer channel. See `experiments/000-onwordly-learner/RESULTS.md`.
+- **Experiment 000 first full run (by hand on Kaggle, one seed):** memory-reading arms collapsed (≤ 0.7% solve); learner-no-memory reached 75.3% solve and showed earned-trust behaviour (hold tracks corrector reliability by 0.488; post-challenge accuracy 86.9–97.8% vs plain 80.2%). Run 2 confirmed the register is an exact-frame answer channel (training probe 95.5% → 0.6% when emptied); dropout recovers 73.4% with earned trust intact. See `experiments/000-onwordly-learner/RESULTS.md`.
 - Memory design in `docs/model-design.md` now covers consolidation-as-rewrite, deliberation-resolved contrasts, the S-curve size budget, time ranges, the top-down summary tree and pair summaries. The aive implementation of the lineage-bank memory merged as HereLiesAz/aive#449 and #450; the aive summary tree is not built yet.
 
 ## Experiment 000
@@ -24,7 +24,7 @@ Results in `experiments/000-onwordly-learner/RESULTS.md`: every register-reading
 
 ## Next actions
 
-1. Run 000 with the diagnostic arms (`arms: learner,learner-no-memory,learner-self-memory,learner-memory-dropout`) by hand on Kaggle (the hand-off workflow is disabled), and read it against the pre-registered memory-diagnostics criteria before changing the memory design.
+1. Choose the next 000 step (see RESULTS run-2 reading): a recurring-frame evaluation where memory can matter, and/or similarity-based recall. Memory as an exact-frame answer channel is confirmed.
 2. Run 17 (verdict prior), if still wanted: by hand from `archive/llm-phase`. Run 18 (000 smoke) is superseded by the full run.
 3. Run 000 single with the full manifest; record the provisional reading against the pre-registered criteria.
 4. Seeds (≥ 3) before attributing any effect to a component.

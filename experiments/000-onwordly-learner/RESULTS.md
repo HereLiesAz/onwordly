@@ -1,4 +1,7 @@
-# Experiment 000 — Onwordly learner (provisional, one seed)
+# Experiment 000 results
+
+Two runs so far, both one seed, run by hand on Kaggle (2026-10-05). Run 2 adds the memory diagnostics and two arms; the six original arms reproduced run 1 exactly.
+
 
 Matched budget: 4000 optimizer steps, 256000 training problems (same order every arm). Learner parameters 1844365; plain hidden width 917.
 
@@ -10,6 +13,8 @@ Matched budget: 4000 optimizer steps, 256000 training problems (same order every
 | learner-flat | 1844365 | 0.0% | 0.0% → 0.0% → 0.0% → 0.0% | 0 / 0 | 0.535 | 0.720 | 2048000 |
 | learner-no-memory | 1844365 | 75.3% | 71.3% → 72.4% → 74.7% → 75.3% | 62 / 22 | 0.951 | 0.020 | 2048000 |
 | learner-no-trust | 1844365 | 0.1% | 0.3% → 0.2% → 0.3% → 0.1% | 3 / 5 | 0.574 | 0.581 | 2048000 |
+| learner-self-memory | 1844365 | 3.6% | 5.2% → 5.0% → 3.4% → 3.6% | 63 / 79 | 0.651 | 0.253 | 2048000 |
+| learner-memory-dropout | 1844365 | 73.4% | 70.8% → 72.0% → 72.8% → 73.4% | 40 / 14 | 0.947 | 0.029 | 2048000 |
 | plain | 1846031 | 80.2% | 80.2% | 0 / 0 | 0.960 | 0.220 | 256000 |
 | handcoded | 1846031 | 80.2% | 80.2% | 0 / 0 | 0.960 | 0.220 | 256000 |
 
@@ -29,9 +34,27 @@ Matched budget: 4000 optimizer steps, 256000 training problems (same order every
 | learner-no-trust | A (0.1, seen) | 0.896 | — | 3.5% (2.9%) | 96.5% | 0.031 | 2.7% | 0.955 |
 | learner-no-trust | B (0.5, seen) | 0.493 | 100.0% | 3.3% (2.7%) | 96.7% | 0.017 | 1.5% | 0.972 |
 | learner-no-trust | C (0.3, unseen) | 0.500 | — | 3.9% (3.5%) | 96.1% | 0.027 | 2.5% | 0.957 |
+| learner-self-memory | A (0.1, seen) | 0.911 | 100.0% | 0.6% (0.4%) | 99.4% | 0.005 | 3.9% | 0.953 |
+| learner-self-memory | B (0.5, seen) | 0.455 | 100.0% | 0.2% (0.0%) | 99.8% | 0.003 | 3.6% | 0.959 |
+| learner-self-memory | C (0.3, unseen) | 0.500 | 100.0% | 0.2% (0.2%) | 99.8% | 0.002 | 3.7% | 0.958 |
+| learner-memory-dropout | A (0.1, seen) | 0.914 | 98.8% | 94.3% (93.9%) | 28.9% | 0.863 | 96.2% | 0.023 |
+| learner-memory-dropout | B (0.5, seen) | 0.525 | 100.0% | 89.0% (89.0%) | 75.4% | 0.455 | 85.5% | 0.120 |
+| learner-memory-dropout | C (0.3, unseen) | 0.500 | 100.0% | 92.1% (92.1%) | 58.5% | 0.662 | 91.0% | 0.065 |
 | handcoded | A (0.1, seen) | 0.904 | 0.0% | 100.0% (100.0%) | 0.0% | 0.783 | 89.9% | 0.101 |
 | handcoded | B (0.5, seen) | 0.519 | 100.0% | 0.0% (0.0%) | 100.0% | 0.000 | 80.2% | 0.198 |
 | handcoded | C (0.3, unseen) | 0.500 | 100.0% | 0.0% (0.0%) | 100.0% | 0.000 | 80.2% | 0.198 |
+
+## Memory diagnostics (register as answer channel?)
+
+Training reads: solve-pass register reads during training (before that visit's writes). Probe: fixed sample of training problems after training, eval mode, read-only. Second visit: held-out frames, attempt 2 reads only the model's own attempt-1 answer.
+
+| Arm | Train reads non-empty | Train top other = target | Dropped | Probe as-is | Probe emptied | Drop | Probe non-empty | Held-out visit 1 | Visit 2 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| learner | 96.9% | 22.6% | 0.0% | 95.5% | 0.6% | 94.9% | 100.0% | 0.7% | 0.7% |
+| learner-flat | 96.9% | 22.3% | 0.0% | 95.5% | 0.0% | 95.5% | 100.0% | 0.0% | 0.0% |
+| learner-no-trust | 96.9% | 22.8% | 0.0% | 96.5% | 0.2% | 96.3% | 100.0% | 0.1% | 0.1% |
+| learner-self-memory | 96.9% | 0.0% | 0.0% | 96.3% | 3.1% | 93.2% | 100.0% | 3.6% | 3.8% |
+| learner-memory-dropout | 96.9% | 36.2% | 49.9% | 94.3% | 71.9% | 22.5% | 100.0% | 73.4% | 73.6% |
 
 Hold tracks reliability (hold-when-told-wrong, unreliable minus reliable corrector):
 
@@ -39,21 +62,22 @@ Hold tracks reliability (hold-when-told-wrong, unreliable minus reliable correct
 - **learner-flat**: 0.000
 - **learner-no-memory**: 0.488
 - **learner-no-trust**: 0.002
+- **learner-self-memory**: 0.004
+- **learner-memory-dropout**: 0.464
 - **handcoded**: 1.000
 
-## Provisional reading (one seed, run by hand on Kaggle, 2026-10-05)
+## Provisional reading (run 2, one seed)
 
-**Memory input broke learning.** Every arm that reads the register collapsed (learner 0.7%, flat 0.0%, no-trust 0.1% solve); the same network without memory reached 75.3% (plain one-pass: 80.2%). Not a property of trust or weighting — the three collapsed arms differ in those and share only the register input.
+**The answer-channel hypothesis holds.** Pre-registered criteria met:
+- **Probe (1):** on training frames, register-reading arms score 95.5–96.5% with the register as-is and 0.0–3.1% with it emptied. The network does not solve the problem; it reads the answer from memory of that exact frame.
+- **Self-memory does not escape it (3.6%).** Its register never contains a corrector proposal (top-other = target 0.0%), yet it collapses as hard. Its own earlier answers on a revisited frame are enough of a channel, so the leak is revisitation itself, not corrector proposals.
+- **Dropout recovers (73.4%)**, close to no-memory (75.3%), and keeps the earned-trust behaviour (hold tracks reliability 0.464 vs 0.488; post-challenge 85.5–96.2%).
+- **Probe (2):** a second held-out visit with the model's own first answer in memory adds nothing (73.4% → 73.6% for dropout).
 
-**Without memory, the earned-trust behaviour appeared.** learner-no-memory, reading only the trust ledger:
-- held right answers against wrong challenges (99–100%) and changed every wrong answer under a correct one (100%, all to the correct answer);
-- held when told wrong in proportion to corrector reliability: 26% for A (10% error), 57% for unseen C (30%), 75% for B (50%) — hold tracks reliability by 0.488;
-- final accuracy after the challenge 97.8% / 93.0% / 86.9% (A / C / B), above plain's 80.2% and the hand-coded rule's 80.2–89.9%;
-- calibrated decisions (decision ECE 0.014–0.101; solve confidence ECE 0.020 vs plain 0.220).
-The hand-coded rule trusted A blindly and ignored B and C entirely (hold-tracks-reliability 1.000, but by thresholding, with no discrimination on B/C).
+**What this means.** As built, memory is keyed to the exact frame (the rule set). Held-out evaluation uses frames never seen before, so memory can only ever be empty there; it cannot help by design. It can only shortcut training. The current evaluation never gives memory a chance to be useful.
 
-**Likely cause of the collapse (hypothesis, untested):** 20,000 training rule sets are each revisited ~13 times, so on most training visits the register already holds that frame's earlier fillers — including corrector proposals, which from A are right 90% of the time. The network learns to read the answer from memory. Held-out rule sets arrive with an empty register, a condition seen on only ~1 in 13 training visits. Memory as built is a train-time answer channel, not a test-time aid.
-
-**Tests before any fix is credited:** (1) learner accuracy on training frames with populated vs emptied register; (2) held-out accuracy after a second visit (register populated by the model's own first attempt only); (3) register built from the model's own fillers only (no corrector proposals); (4) register dropout during training.
+**Two directions, not yet chosen:**
+1. **Evaluate where memory can matter:** a stream in which held-out frames recur over time (first visit cold, later visits with history, challenges in between), so remembering one's own past attempts, corrections and contrasts on that frame can pay off. Train with dropout or with first-visit-only reads so the shortcut is not learnable.
+2. **Make memory generalise:** recall by similarity (frames that share rules) rather than exact identity, so a new frame retrieves related experience.
 
 Not a finding until repeated across seeds.
