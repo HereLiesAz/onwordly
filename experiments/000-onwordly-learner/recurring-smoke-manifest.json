@@ -60,11 +60,19 @@
   "arms": [
     "learner-no-memory",
     "learner-memory-dropout",
-    "learner-first-visit",
+    "learner-child",
     "plain",
     "handcoded"
   ],
   "recurring_frames": 12,
   "recurring_visits": 3,
-  "recurring_min_gap": 3
+  "recurring_min_gap": 3,
+  "recurring_source_ablation": [
+    "learner-memory-dropout"
+  ],
+  "recurring_ablation_sources": [
+    "self",
+    "correctors",
+    "all"
+  ]
 }

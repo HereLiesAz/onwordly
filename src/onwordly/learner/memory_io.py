@@ -7,7 +7,8 @@ proposal, final and verifier fillers per frame) and the ``TrustLedger``
 estimates into input features.
 
 Register reads exclude ``verifier`` fillers (``sources="self"`` additionally
-excludes corrector proposals): on a revisited training frame
+excludes corrector proposals; ``sources="correctors"`` additionally excludes
+the model's own ``self`` fillers -- only what it was told): on a revisited training frame
 they would hand the network the answer, a shortcut that cannot exist on
 held-out frames. The verifier filler is still stored.
 
@@ -72,6 +73,9 @@ class LearnerMemory:
         if sources == "self":
             # Own fillers only: drop corrector proposals and the verifier.
             return tuple({e.source for e in self.register.entries(frame_for(task))} - {"self"}) or ("verifier",)
+        if sources == "correctors":
+            # What it was told only: drop its own fillers and the verifier.
+            return ("self", "verifier")
         raise ValueError(f"unknown register sources: {sources}")
 
     def empty_read(self) -> tuple[list[float], list[list[float]]]:

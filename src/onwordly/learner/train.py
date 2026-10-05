@@ -21,6 +21,13 @@ Update weight: ``update_weight(confidence, surprise)`` with confidence = the
 probability the network gave the move it made and surprise = 1 when the final
 answer is wrong (``flat`` for the ablation), normalised to batch mean 1.
 
+``learner-child`` (README, "Childhood arm"): learner-memory-dropout with no
+self-trust anywhere -- the ledger's self-trust input is zeroed, the update
+weight is ``flat`` (the model's own confidence never scales an update; flat
+rather than corrector-reliability weighting, which would be a new component
+needing its own ablation), and register reads use ``sources="correctors"``
+(own ``self`` fillers excluded; training targets still teach via the loss).
+
 ``learner-first-visit`` (README, "Recurring frames"): a problem whose frame
 already has readable register entries when it is drawn is a *revisit*. For a
 revisit the memory-reading passes are trained only through the hold/change
@@ -66,7 +73,8 @@ class LearnerVariant:
     weighting: str = "confidence_surprise"
     use_memory: bool = True
     use_trust: bool = True
-    register_sources: str = "all"  # "self": read only the model's own fillers
+    register_sources: str = "all"  # "self": own fillers only; "correctors": corrector proposals only
+    self_trust: bool = True  # False: the ledger's self-trust feature is zeroed in the input
     memory_dropout: bool = False  # training reads emptied with prob manifest.memory_dropout
     first_visit_loss: bool = False  # revisits: memory-reading passes trained via the decision only
 
@@ -78,7 +86,13 @@ VARIANTS: dict[str, LearnerVariant] = {
     "learner-no-trust": LearnerVariant(use_trust=False),
     "learner-self-memory": LearnerVariant(register_sources="self"),
     "learner-memory-dropout": LearnerVariant(memory_dropout=True),
-    "learner-first-visit": LearnerVariant(first_visit_loss=True),
+    "learner-first-visit": LearnerVariant(first_visit_loss=True),  # broken by design (run 3); kept, not run
+    # Childhood (docs/model-design.md, mindset): no self-trust anywhere. Built on
+    # learner-memory-dropout; self-trust input zeroed, flat update weighting (no
+    # own-confidence weighting), register reads only what it was told.
+    "learner-child": LearnerVariant(
+        memory_dropout=True, self_trust=False, weighting="flat", register_sources="correctors"
+    ),
 }
 
 
@@ -155,6 +169,8 @@ def _inputs(
         else:
             mem_g, mem_s = [0.0] * MEMORY_GLOBAL_DIM, [[0.0] * (2 * encoding.vocab)] * encoding.slots
         trust = memory.trust(task, challenge.corrector if challenge else None) if variant.use_trust else [0.0] * TRUST_DIM
+        if not variant.self_trust:
+            trust = [0.0, *trust[1:]]  # index 0 = ledger self-trust
         if challenge is None:
             chal_g, proposal = [0.0] * CHALLENGE_GLOBAL_DIM, [[0.0] * encoding.vocab] * encoding.slots
         else:
