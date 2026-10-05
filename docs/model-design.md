@@ -55,6 +55,27 @@ Assessed against aive (`HereLiesAz/aive`, docs/Memory-layer.md and docs/architec
 2. **Explicit trust state** on the existing model: per-domain trust estimate from the episode store, fed to the reasoner, scaling learning rate. Ablate against aive-style hand-coded track records (success rate, three-strike circuit breaker).
 3. **From-scratch construction**: episode store + divergence marker + reasoner + trust ledger as model components; local, confidence-weighted learning. Baselines: same-size standard network; same construction trained by backprop.
 
+## Borrow map
+
+Borrow wherever possible. † = from memory, verify before citing.
+
+| Component | Borrow from |
+| --- | --- |
+| Add-only episode store | Event sourcing / append-only logs; immutable databases (Datomic†, XTDB†) |
+| Two clocks (record time, event time) | Bitemporal data modelling (SQL:2011 temporal tables); Zep/Graphiti bi-temporal knowledge graph† |
+| Frame / filler | Frame semantics (Fillmore; FrameNet); semantic role labelling; Open IE subject–relation–object triples |
+| Synonyms in fillers | Entity linking and canonicalisation; alias tables (e.g. Wikidata aliases) |
+| Contrast detection | NLI contradiction classifiers, used only to *flag*; minimal-pair alignment |
+| Keeping contradictions alive | Assumption-based truth maintenance (de Kleer's ATMS†): holds every consistent set of assumptions at once, nothing discarded |
+| Conscious adjudication record | Argumentation frameworks (Dung†); design rationale / decision logs |
+| Corrector reliability | Dawid–Skene; truth discovery with source dependence (Dong et al. 2009†) |
+| Per-domain self-trust | Beta-Bernoulli reputation (Jøsang†); calibration |
+| Update size from confidence × surprise | Precision-weighted prediction error; focal loss. Note: Kalman-style updates shrink when confident — the opposite of "confident-and-wrong learns most"; surprise must dominate |
+| Fallible challenge | AI safety via debate (Irving et al. 2018†); sycophancy / challenge robustness (arXiv:2310.13548, 2311.08596) |
+| Graded reward | Reward shaping; SCoRe improvement bonus (arXiv:2409.12917) |
+
+What is left to build is the wiring between these, under exact verification and matched budgets.
+
 ## Prior art (not ours)
 
 Predictive coding and precision-weighted prediction error; equilibrium propagation (Scellier & Bengio 2017); calibration and metacognitive confidence; annotator-reliability models (Dawid–Skene); confidence-weighted and focal losses; sycophancy and challenge robustness (Sharma et al. arXiv:2310.13548; FlipFlop arXiv:2311.08596); reward shaping and improvement bonuses (SCoRe arXiv:2409.12917); noisy-OR evidence accumulation; Hebbian association. A related-work search is required before any component or the combination is called novel.
