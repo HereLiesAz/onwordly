@@ -5,7 +5,7 @@
 - Clean slate. Onwordly is now the earned-trust / conscious-judgment / add-only-memory learner (`docs/model-design.md`). Work starts at Experiment 000.
 - The LLM phase (Experiments 001–011, reports, notes, scripts) is archived on branch `archive/llm-phase` (commit `c35b185`). Findings: `docs/findings-llm-phase.md`.
 - **Run 17 (verdict prior) never ran.** The `.kaggle-run` change merged at `c35b185`, but the Kaggle hand-off workflow (and CI) has been `disabled_manually` since 2026-10-01, so nothing was dispatched. Its code exists only on `archive/llm-phase`.
-- **Run 18 (000 smoke) never ran** for the same reason (merged at `b2c163d`, workflow disabled). `.kaggle-run` on main still requests it; re-enabling the workflow and pushing a `.kaggle-run` change, or running the notebook by hand, starts it.
+- **Experiment 000 first full run (by hand on Kaggle, one seed):** memory-reading arms collapsed (≤ 0.7% solve); learner-no-memory reached 75.3% solve and showed earned-trust behaviour (hold tracks corrector reliability by 0.488; post-challenge accuracy 86.9–97.8% vs plain 80.2%). Suspected cause: register acts as a train-time answer channel. See `experiments/000-onwordly-learner/RESULTS.md`.
 - Memory design in `docs/model-design.md` now covers consolidation-as-rewrite, deliberation-resolved contrasts, the S-curve size budget, time ranges, the top-down summary tree and pair summaries. The aive implementation of the lineage-bank memory merged as HereLiesAz/aive#449 and #450; the aive summary tree is not built yet.
 
 ## Experiment 000
@@ -21,7 +21,7 @@ Prepared and CPU-tested (tiny end-to-end run in `tests/learner/`); no full run. 
 ## Next actions
 
 1. Re-enable `.github/workflows/kaggle-experiment.yml` (and CI) or run the notebook by hand; verify a run actually starts before recording it as dispatched.
-2. Run and inspect the 000 smoke manifest.
+2. Diagnose the memory collapse with the four tests in the 000 RESULTS reading before changing the design.
 3. Run 000 single with the full manifest; record the provisional reading against the pre-registered criteria.
 4. Seeds (≥ 3) before attributing any effect to a component.
 5. Move CI to the central controller; decide whether CI should install CPU torch so learner tests run there.
