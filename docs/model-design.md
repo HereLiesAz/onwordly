@@ -16,6 +16,16 @@ The archived Experiments 008–009 (`docs/findings-llm-phase.md`) failed in one 
 6. **Trust shapes learning.** Confident-and-wrong → largest update to answer and to trust. Held correctly under challenge → trust grows. Unsure-and-wrong → small update.
 7. **Truth comes from outside.** The model never certifies itself; the exact checker is the ground truth trust is earned against.
 
+## Childhood, pubescence, adulthood
+
+Trust develops in two stages separated by a tipping point, per domain.
+
+- **Childhood — trust in teachers.** Self-trust carries no weight. The model trusts its teachers and what they taught it, and defends taught answers against other challengers to the bitter end ("my dad is bigger than your dad"). A teacher can still correct it; others cannot. Memory records who taught what, so authority attaches to sources.
+- **Pubescence — the tipping point.** Self-trust switches on in a domain when the model's own track record there has earned it: its verified accuracy, over enough evidence, reaches the reliability of its teachers. Until then its own judgment is not weighed at all.
+- **Adulthood — earned self-trust.** Its own judgment is weighed alongside every source's track record, teachers included. It can hold against a teacher when its history says it is right, and yield to anyone with the better record.
+
+Measured per arm and per visit: whom it defends against whom, whether a teacher can still move it, and — after the tipping point — whether holding tracks the relative record of self versus challenger.
+
 ## Consolidation rewrites; storage does not forget
 
 Consolidation is rewriting: the current memory is replaced by a consolidated version, and its sources become history — never deleted, reachable by lineage, faded from default recall (git-like: new commit, immutable past). Similar memories consolidate automatically. Contrasting memories consolidate only after conscious judgment: the model investigates (memories plus other evidence) and writes a deliberation naming the memory it judged correct; later consolidation absorbs that deliberation into the chosen memory, and the other side becomes history, linked to the reason. No deliberation, no consolidation of a contrast. Once resolved, the chosen memory is recalled as a single memory; its contradiction history fades with use — each access strengthens the memory and surfaces less of the old dispute, until only a link remains. Nothing is re-adjudicated on every recall; only new contrasting evidence reopens it.
