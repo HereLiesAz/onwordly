@@ -43,6 +43,8 @@ Assessed against aive (`HereLiesAz/aive`, docs/Memory-layer.md and docs/architec
   | same | different | **contrast** | never merge; divergence marker; recall both sides together |
   | different | any | unrelated / associated | link at most |
 
+  **Variant register.** The varying filler — "Postgres", "MySQL", and every filler like it the model encounters — is kept in a list per frame. Each entry: the filler; **age** (when it was encountered, and when it was said to hold — record time and event time are different clocks); **context** (situation, project, task); **subject** (who or what the frame is about); plus source and occurrence count. Nothing in the list is ranked as correct. The list *is* the contrast: one frame, many answers, each with its circumstances, for the reasoner to read. For the learner, a task frame's register holds its own answers, challenges, corrections and verifier outcomes — per-frame trust is read off it.
+
   Detection is structural, not a truth judgment: align, diff; shared structure + differing content words (entities, values, choices) = contrast; an alias table keeps synonyms ("Postgres"/"PostgreSQL") from counting. The clerk says "same question, different answer"; the reasoner decides. Repetition count from condensation is evidence: a mistake made ten times is a pattern for the reasoner, not a strengthened default.
 - **Scale by hiding.** Growth pressure pushes toward more condensation. Here: tier access, keep everything recallable, cap the injected payload instead.
 - **Erasure outside the model.** Here: the single audited exception — purge, tombstone, re-derive.
