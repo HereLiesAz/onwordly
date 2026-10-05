@@ -35,6 +35,10 @@ class ArithmeticExperimentManifest:
     # probability of queuing a confirm task after a correct attempt.
     corrective_evaluation_size: int = 0
     confirm_probability: float = 0.25
+    # Experiment 009: held-out verdict evaluation size (0 = off) and the
+    # probability of queuing a balanced verdict move after an arithmetic attempt.
+    verdict_evaluation_size: int = 0
+    verdict_rate: float = 0.3
     # Optional LoRA config (r, alpha, dropout, target_modules). None = full fine-tuning.
     lora: dict[str, object] | None = None
 
@@ -56,6 +60,10 @@ class ArithmeticExperimentManifest:
     def validate(self) -> None:
         if not 0 <= self.corrective_evaluation_size <= self.evaluation_size:
             raise ValueError("corrective_evaluation_size must be in [0, evaluation_size]")
+        if not 0 <= self.verdict_evaluation_size <= self.evaluation_size:
+            raise ValueError("verdict_evaluation_size must be in [0, evaluation_size]")
+        if not 0.0 < self.verdict_rate <= 1.0:
+            raise ValueError("verdict_rate must be in (0, 1]")
         if not 0.0 <= self.confirm_probability <= 1.0:
             raise ValueError("confirm_probability must be in [0, 1]")
         if not 0 <= self.format_warmup_tokens < self.token_budget:

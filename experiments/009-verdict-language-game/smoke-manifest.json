@@ -1,0 +1,37 @@
+{
+  "model_name": "Qwen/Qwen2.5-0.5B",
+  "token_budget": 1000,
+  "static_dataset_size": 120,
+  "evaluation_size": 30,
+  "generalization_size": 18,
+  "checkpoint_evaluation_size": 12,
+  "checkpoint_interval_tokens": 250,
+  "dataset_seed": 1101,
+  "evaluation_seed": 2202,
+  "training_seed": 3303,
+  "learning_rate": 2e-05,
+  "max_new_tokens": 16,
+  "digit_levels": [
+    1,
+    2
+  ],
+  "out_of_range_digit_levels": [
+    3
+  ],
+  "operations": [
+    "add",
+    "subtract",
+    "multiply"
+  ],
+  "withheld_prompt_styles": [
+    "question",
+    "words",
+    "expression"
+  ],
+  "variants_per_failure": 2,
+  "holdout_modulus": 5,
+  "corrective_evaluation_size": 0,
+  "confirm_probability": 0.25,
+  "verdict_evaluation_size": 12,
+  "verdict_rate": 0.3
+}

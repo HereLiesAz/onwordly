@@ -163,11 +163,44 @@ def render_single_run(summary: dict[str, Any]) -> str:
             if not row:
                 continue
             self_correction = row["self_correction"]
-            queued_text = "—" if not queued else f"{queued['correct']} / {queued['confirm']}"
+            queued_text = f"{queued['correct']} / {queued['confirm']}" if queued and "correct" in queued else "—"
             lines.append(
                 f"| {name} | {_pct(row['correction_accuracy'])} | {_pct(row['confirmation_accuracy'])} | "
                 f"{_pct(self_correction['first_pass_accuracy'])} | {_pct(self_correction['second_pass_accuracy'])} | "
                 f"{self_correction['fixed']} | {self_correction['broken']} | {queued_text} |"
+            )
+
+    verdict_rows = [
+        (name, summary["regimes"][name].get("verdict_evaluation"), summary["regimes"][name].get("corrective_tasks_queued"))
+        for name in _regime_order(summary)
+    ]
+    if any(row[1] for row in verdict_rows):
+        lines.extend(
+            [
+                "",
+                "## Verdict game (Experiment 009)",
+                "",
+                "Right shown: reply `right`. Wrong shown (synthetic near miss): reply `wrong: <answer>`;",
+                "judgement counts the verdict alone, repair also the number. Always answering `right`",
+                "scores 50% balanced. Self-check: answer, judge your own answer, keep or repair it.",
+                "",
+                "| Regime | Right shown | Wrong: judgement | Wrong: repair | Balanced verdict | Self-check pass 1 | Final | Fixed | Broken | Verdict moves trained |",
+                "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for name, row, queued in verdict_rows:
+            if not row:
+                continue
+            check = row["self_check"]
+            if queued and "right" in queued:
+                queued_text = f"{queued['right']} right / {queued['wrong_own']} own / {queued['wrong_synthetic']} synthetic"
+            else:
+                queued_text = "—"
+            lines.append(
+                f"| {name} | {_pct(row['right_shown_accuracy'])} | {_pct(row['wrong_shown_judgement_accuracy'])} | "
+                f"{_pct(row['wrong_shown_repair_accuracy'])} | {_pct(row['balanced_verdict_accuracy'])} | "
+                f"{_pct(check['first_pass_accuracy'])} | {_pct(check['final_accuracy'])} | "
+                f"{check['fixed']} | {check['broken']} | {queued_text} |"
             )
 
     lines.extend(
