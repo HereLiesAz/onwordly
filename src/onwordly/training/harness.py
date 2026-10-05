@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 from random import Random
 from statistics import fmean
 from time import perf_counter
-from typing import Callable, Sequence
+from typing import Any, Callable, Protocol, Sequence
 
 from onwordly.models.base import ModelAdapter
 from onwordly.tasks.base import TrainableTask
@@ -23,18 +23,49 @@ class TaskSource:
 
 
 @dataclass(frozen=True, slots=True)
-class OnPolicyConfig:
-    """Opt-in on-policy update for a task (Experiment 010, ``verdict-rl``).
+class Episode:
+    """One sampled episode: the (prompt, completion) turns it trains, its reward,
+    its outcome tier and whether its final answer was exactly correct."""
 
-    A source opts a task in by returning this from ``on_policy_config(task)``.
-    Instead of one SFT step on the target, the harness samples ``samples``
-    completions at ``temperature``, rewards each 1/0 by the exact verifier,
-    and trains each with weight ``reward - mean(rewards)`` via
+    turns: tuple[tuple[str, str], ...]
+    reward: float
+    tier: str
+    correct: bool
+
+
+@dataclass(frozen=True, slots=True)
+class Rollout:
+    episodes: tuple[Episode, ...]
+    generation_calls: int
+    verifier_calls: int
+
+
+class OnPolicyPolicy(Protocol):
+    """What the harness needs from an on-policy opt-in (see ``OnPolicyConfig``)."""
+
+    samples: int
+    temperature: float
+
+    def rollout(self, adapter: ModelAdapter, task: TrainableTask, verifier: Verifier) -> Rollout:
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class OnPolicyConfig:
+    """Single-move on-policy update for a task (Experiment 010, ``verdict-rl``).
+
+    A source opts a task in by returning a policy from ``on_policy_config(task)``.
+    Instead of one SFT step on the target, the harness rolls out ``samples``
+    episodes, here one sampled completion each at ``temperature``, rewarded
+    1/0 by the exact verifier (tiers ``correct``/``incorrect``). Every turn of
+    every episode is trained with weight ``reward - mean(rewards)`` via
     ``adapter.train_weighted`` (advantage-weighted negative log-likelihood).
     This is REINFORCE with a group-mean baseline: GRPO-style group advantages
     without ratio clipping, a KL penalty or reward-std normalisation. It is an
     established method, not an Onwordly invention. A group whose rewards are
     all equal has zero advantage everywhere and is skipped without an update.
+    Multi-turn rollouts (``selfcheck_episodes.SelfCheckEpisodeConfig``) plug
+    into the same update.
     """
 
     samples: int = 4
@@ -45,6 +76,18 @@ class OnPolicyConfig:
             raise ValueError("on-policy groups need at least two samples")
         if self.temperature <= 0.0:
             raise ValueError("temperature must be positive")
+
+    def rollout(self, adapter: ModelAdapter, task: TrainableTask, verifier: Verifier) -> Rollout:
+        completions = list(adapter.sample(task.prompt, self.samples, self.temperature))
+        if len(completions) != self.samples:
+            raise RuntimeError("adapter returned the wrong number of samples")
+        episodes = []
+        for completion in completions:
+            ok = bool(verifier(task, completion))
+            episodes.append(
+                Episode(((task.prompt, completion),), float(ok), "correct" if ok else "incorrect", ok)
+            )
+        return Rollout(tuple(episodes), generation_calls=len(completions), verifier_calls=len(completions))
 
 
 def group_advantages(rewards: Sequence[float]) -> list[float] | None:
@@ -98,7 +141,7 @@ class TrainingRunResult:
     # On-policy accounting (Experiment 010); None, and omitted from to_dict,
     # for every run without on-policy tasks. Its sampling calls/seconds are
     # also included in generation_calls/generation_seconds.
-    on_policy: dict[str, float | int | None] | None = None
+    on_policy: dict[str, object] | None = None
 
     @property
     def pre_update_attempts(self) -> int:
@@ -201,7 +244,7 @@ def run_equal_token_training(
     on_policy_for = getattr(source, "on_policy_config", None)
     if not callable(on_policy_for):
         on_policy_for = None
-    on_policy_stats: dict[str, float | int | None] | None = None
+    on_policy_stats: dict[str, Any] | None = None
     on_policy_losses: list[float] = []
 
     next_checkpoint = checkpoint_interval_tokens
@@ -240,7 +283,7 @@ def run_equal_token_training(
     while True:
         task = source.next_task(rng)
         target = task.target_text
-        policy = on_policy_for(task) if on_policy_for is not None else None
+        policy: OnPolicyPolicy | None = on_policy_for(task) if on_policy_for is not None else None
         if policy is None:
             planned_tokens = adapter.count_training_tokens(task.prompt, target)
             if planned_tokens < 1:
@@ -281,49 +324,55 @@ def run_equal_token_training(
                     "groups": 0,
                     "groups_trained": 0,
                     "groups_skipped_equal_rewards": 0,
+                    "episodes": 0,
                     "sample_generation_calls": 0,
                     "sample_generation_seconds": 0.0,
                     "sample_verifier_calls": 0,
                     "samples_correct": 0,
                     "weighted_updates": 0,
                     "update_tokens": 0,
+                    "reward_tiers": {},
                 }
             stats = on_policy_stats
             _synchronize_adapter(adapter)
             started = perf_counter()
-            completions = list(adapter.sample(task.prompt, policy.samples, policy.temperature))
+            rollout = policy.rollout(adapter, task, verifier)
             _synchronize_adapter(adapter)
-            sampled = perf_counter()
-            if len(completions) != policy.samples:
-                raise RuntimeError("adapter returned the wrong number of samples")
-            generation_seconds += sampled - started
-            generation_calls += len(completions)
-            generated_characters += sum(len(completion) for completion in completions)
-            rewards = [float(verifier(task, completion)) for completion in completions]
-            verifier_seconds += perf_counter() - sampled
-            verifier_calls += len(completions)
+            # Rollout time (sampling plus its trivial exact checks) is billed as generation.
+            rolled = perf_counter() - started
+            generation_seconds += rolled
+            generation_calls += rollout.generation_calls
+            verifier_calls += rollout.verifier_calls
+            generated_characters += sum(
+                len(completion) for episode in rollout.episodes for _, completion in episode.turns
+            )
+            tiers = stats["reward_tiers"]
+            for episode in rollout.episodes:
+                tiers[episode.tier] = tiers.get(episode.tier, 0) + 1
             stats["groups"] += 1
-            stats["sample_generation_calls"] += len(completions)
-            stats["sample_generation_seconds"] += sampled - started
-            stats["sample_verifier_calls"] += len(completions)
-            stats["samples_correct"] += int(sum(rewards))
-            advantages = group_advantages(rewards)
+            stats["episodes"] += len(rollout.episodes)
+            stats["sample_generation_calls"] += rollout.generation_calls
+            stats["sample_generation_seconds"] += rolled
+            stats["sample_verifier_calls"] += rollout.verifier_calls
+            stats["samples_correct"] += sum(episode.correct for episode in rollout.episodes)
+            advantages = group_advantages([episode.reward for episode in rollout.episodes])
             if advantages is None:
                 stats["groups_skipped_equal_rewards"] += 1
                 continue
             pairs = [
-                (completion, advantage)
-                for completion, advantage in zip(completions, advantages)
+                (prompt, completion, advantage)
+                for episode, advantage in zip(rollout.episodes, advantages)
                 if advantage != 0.0
+                for prompt, completion in episode.turns
             ]
-            counts = [adapter.count_training_tokens(task.prompt, completion) for completion, _ in pairs]
+            counts = [adapter.count_training_tokens(prompt, completion) for prompt, completion, _ in pairs]
             if min(counts) < 1:
                 raise RuntimeError("adapter reported a non-positive training token count")
             if training_tokens + sum(counts) > token_budget:
                 break
-            for (completion, advantage), planned in zip(pairs, counts):
+            for (prompt, completion, advantage), planned in zip(pairs, counts):
                 update_started = perf_counter()
-                step = adapter.train_weighted(task.prompt, completion, advantage)
+                step = adapter.train_weighted(prompt, completion, advantage)
                 if step.tokens != planned:
                     raise RuntimeError(
                         "adapter token accounting changed between planning and training: "
@@ -331,7 +380,7 @@ def run_equal_token_training(
                     )
                 _synchronize_adapter(adapter)
                 training_core_seconds += perf_counter() - update_started
-                seen_examples.add((task.prompt, completion))
+                seen_examples.add((prompt, completion))
                 training_tokens += step.tokens
                 examples_trained += 1
                 on_policy_losses.append(step.loss)

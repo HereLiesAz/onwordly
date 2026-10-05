@@ -45,15 +45,18 @@ DEFAULT_MANIFESTS: dict[str, str] = {
     "010": "experiments/010-verdict-repair/manifest.json",
 }
 
-# Experiment 010: three repair levers for 009's accept collapse (budget,
-# answer-before-verdict ordering, on-policy reward) against static and 009's
-# verdict-synthetic arm, rerun for seed comparability.
+# Experiment 010: repair levers for 009's accept collapse (budget,
+# answer-before-verdict ordering, on-policy reward, graded two-turn self-check
+# reward with its binary ablation) against static and 009's verdict-synthetic
+# arm, rerun for seed comparability.
 VERDICT_REPAIR_REGIMES: tuple[str, ...] = (
     "static",
     "verdict-synthetic",
     "verdict-dense",
     "solve-judge-synthetic",
     "verdict-rl",
+    "verdict-rl-graded",
+    "selfcheck-rl-binary",
 )
 
 # Experiment 009: static reference, two verdict arms, and 008's synthetic

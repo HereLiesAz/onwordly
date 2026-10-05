@@ -14,7 +14,7 @@ fixed, and what evidence it is allowed to support.
 | 007 | Exact process supervision | outcome-only / trace-supervised | final answer; exact machine-state trace | smoke/full ablation scaffold prepared; no real-model run; example-count confound unresolved |
 | 008 | Corrective arithmetic language game | static / corrective-own / corrective-synthetic / error-focused | 001 splits; correction; confirmation; two-pass self-correction | prepared; CPU-tested; no real-model run |
 | 009 | Verdict arithmetic language game | static / verdict-synthetic / verdict-mixed / corrective-synthetic | 001 splits; right-shown; wrong-shown judgement and repair; balanced verdict; self-check | one seed run 2026-10-05: collapsed to accept (balanced 50.0 / 51.9%) |
-| 010 | Verdict repair: budget, ordering, on-policy reward | static / verdict-synthetic / verdict-dense / solve-judge-synthetic / verdict-rl | 009 measures in each arm's own format; per-class counts (shown and self-check); on-policy sampling cost | prepared; CPU-tested; no real-model run; suite gated |
+| 010 | Verdict repair: budget, ordering, on-policy reward | static / verdict-synthetic / verdict-dense / solve-judge-synthetic / verdict-rl / verdict-rl-graded / selfcheck-rl-binary | 009 measures in each arm's own format; per-class counts (shown and self-check); on-policy sampling cost | prepared; CPU-tested; no real-model run; suite gated |
 
 ## Cross-experiment invariants
 

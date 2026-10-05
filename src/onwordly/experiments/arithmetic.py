@@ -23,7 +23,8 @@ from onwordly.training.corrective_evaluation import evaluate_corrective
 from onwordly.training.corrective_sources import CorrectiveArithmeticSource
 from onwordly.training.harness import OnPolicyConfig, run_equal_token_training
 from onwordly.training.verdict_evaluation import evaluate_verdict
-from onwordly.training.verdict_sources import VerdictArithmeticSource
+from onwordly.training.selfcheck_episodes import SelfCheckEpisodeConfig
+from onwordly.training.verdict_sources import SelfCheckEpisodeSource, VerdictArithmeticSource
 from onwordly.tasks.solve_judge import make_solve_judge_task
 from onwordly.tasks.verdict import verify_task
 from onwordly.training.sources import (
@@ -190,6 +191,18 @@ def _source_for_regime(
             verdict_rate=manifest.verdict_rate,
             seed=manifest.training_seed,
             on_policy=OnPolicyConfig(samples=manifest.rl_samples, temperature=manifest.rl_temperature),
+        )
+    if regime in ("verdict-rl-graded", "selfcheck-rl-binary"):
+        # Identical two-turn self-check episodes; only the episode reward differs.
+        return SelfCheckEpisodeSource(
+            static_tasks,
+            config=SelfCheckEpisodeConfig(
+                reward="graded" if regime == "verdict-rl-graded" else "binary",
+                samples=manifest.rl_samples,
+                temperature=manifest.rl_temperature,
+            ),
+            verdict_rate=manifest.verdict_rate,
+            seed=manifest.training_seed,
         )
     if regime == "error-focused-uniform":
         return ErrorFocusedArithmeticSource(

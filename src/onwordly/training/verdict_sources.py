@@ -10,6 +10,7 @@ from onwordly.tasks.corrective import synthetic_wrong_answer
 from onwordly.tasks.solve_judge import SolveJudgeTask
 from onwordly.tasks.verdict import VerdictTask, make_verdict_task
 from onwordly.training.harness import OnPolicyConfig
+from onwordly.training.selfcheck_episodes import SelfCheckEpisode, SelfCheckEpisodeConfig
 from onwordly.training.sources import StaticArithmeticSource
 from onwordly.verifiers.arithmetic import parse_integer_answer
 
@@ -86,3 +87,47 @@ class VerdictArithmeticSource:
             return
         self.pending.append(self.make_move(task, synthetic_wrong_answer(task, self.rng)))
         self.queued["wrong_synthetic"] += 1
+
+
+class SelfCheckEpisodeSource:
+    """Static arithmetic stream with on-policy self-check episode groups (010).
+
+    After the pre-update attempt on each arithmetic task, with probability
+    ``verdict_rate`` a ``SelfCheckEpisode`` on that task is queued and trained
+    by ``config`` (two sampled turns: answer, then a verdict on that answer).
+    Arithmetic tasks stay SFT. Built only from training tasks.
+    """
+
+    def __init__(
+        self,
+        tasks: Sequence[ArithmeticTask],
+        *,
+        config: SelfCheckEpisodeConfig,
+        verdict_rate: float,
+        seed: int,
+    ) -> None:
+        if not 0.0 < verdict_rate <= 1.0:
+            raise ValueError("verdict_rate must be in (0, 1]")
+        self.base = StaticArithmeticSource(tasks)
+        self.config = config
+        self.verdict_rate = verdict_rate
+        self.rng = Random(seed)
+        self.pending: deque[SelfCheckEpisode] = deque()
+        self.queued = {"episode_groups": 0}
+
+    def on_policy_config(self, task: object) -> SelfCheckEpisodeConfig | None:
+        return self.config if isinstance(task, SelfCheckEpisode) else None
+
+    def next_task(self, rng: Random) -> ArithmeticTask | SelfCheckEpisode:
+        if self.pending:
+            return self.pending.popleft()
+        return self.base.next_task(rng)
+
+    def observe(self, task: object, correct: bool) -> None:
+        del task, correct
+
+    def observe_response(self, task: object, response: str, correct: bool) -> None:
+        del response, correct
+        if isinstance(task, ArithmeticTask) and self.rng.random() < self.verdict_rate:
+            self.pending.append(SelfCheckEpisode(task))
+            self.queued["episode_groups"] += 1

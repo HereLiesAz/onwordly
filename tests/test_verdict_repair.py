@@ -291,8 +291,10 @@ def test_verdict_repair_regimes_run_and_report(tmp_path: Path) -> None:
     regimes = result["regimes"]
     assert regimes["solve-judge-synthetic"]["verdict_evaluation"]["format"] == "solve-judge"
     assert regimes["verdict-dense"]["verdict_evaluation"]["format"] == "verdict"
-    assert "on_policy" in regimes["verdict-rl"]["training"]
-    assert all("on_policy" not in regimes[name]["training"] for name in VERDICT_REPAIR_REGIMES if name != "verdict-rl")
+    rl_arms = ("verdict-rl", "verdict-rl-graded", "selfcheck-rl-binary")
+    assert all("on_policy" in regimes[name]["training"] for name in rl_arms)
+    assert all("on_policy" not in regimes[name]["training"] for name in VERDICT_REPAIR_REGIMES if name not in rl_arms)
+    assert set(regimes["verdict-rl"]["training"]["on_policy"]["reward_tiers"]) <= {"correct", "incorrect"}
     for name in VERDICT_REPAIR_REGIMES:
         assert regimes[name]["training"]["training_tokens"] <= manifest.token_budget
     queued = {name: sum(regimes[name]["corrective_tasks_queued"].values()) for name in ("verdict-synthetic", "verdict-dense")}
@@ -321,7 +323,8 @@ def test_kaggle_plan_for_010(tmp_path: Path) -> None:
     assert [unit[2] for unit in units] == list(VERDICT_REPAIR_REGIMES)
     assert {unit[1] for unit in units} == {str(tmp_path / "010-verdict-repair")}
     assert VERDICT_REPAIR_REGIMES == (
-        "static", "verdict-synthetic", "verdict-dense", "solve-judge-synthetic", "verdict-rl",
+        "static", "verdict-synthetic", "verdict-dense", "solve-judge-synthetic", "verdict-rl", "verdict-rl-graded",
+        "selfcheck-rl-binary",
     )
 
 
@@ -353,3 +356,173 @@ def test_hf_adapter_sample_and_weighted_update_with_lora() -> None:
     step = adapter.train_weighted("Compute 2 + 3.", "5", -0.5)
     assert step.tokens == adapter.count_training_tokens("Compute 2 + 3.", "5") and step.loss > 0
     assert any(not p.detach().equal(before[n]) for n, p in adapter.model.named_parameters() if n in before)
+
+
+
+# --- Two-turn self-check episodes (verdict-rl-graded / selfcheck-rl-binary) ---
+
+from onwordly.training.selfcheck_episodes import (  # noqa: E402
+    GRADED_EPISODE_REWARDS,
+    SelfCheckEpisode,
+    SelfCheckEpisodeConfig,
+    classify_episode,
+    episode_reward,
+    is_close_repair,
+)
+from onwordly.training.verdict_sources import SelfCheckEpisodeSource  # noqa: E402
+
+MUL = make_arithmetic_task(47, 6, "multiply")  # 282
+
+
+@pytest.mark.parametrize(
+    ("turn1", "turn2", "tier", "graded", "binary"),
+    (
+        ("282", "right", "right_kept", 1.0, 1.0),
+        ("272", "wrong: 282", "wrong_repaired", 0.6, 1.0),
+        ("272", "wrong: 290", "wrong_caught_close_repair", 0.4, 0.0),
+        ("272", "wrong: 300", "wrong_caught_far_repair", 0.3, 0.0),
+        ("272", "wrong: 272", "wrong_caught_close_repair", 0.4, 0.0),
+        ("272", "right", "wrong_accepted", 0.0, 0.0),
+        ("282", "wrong: 282", "right_rejected", -0.5, 1.0),
+        ("282", "wrong: 5", "right_rejected", -0.5, 0.0),
+        ("282", "maybe", "unparseable_verdict", 0.0, 0.0),
+        ("two hundred", None, "unparseable_answer", 0.0, 0.0),
+    ),
+)
+def test_episode_tiers_and_rewards(turn1, turn2, tier, graded, binary) -> None:
+    got_tier, final = classify_episode(MUL, turn1, turn2)
+    assert got_tier == tier
+    assert episode_reward("graded", got_tier, final, MUL.answer) == graded == GRADED_EPISODE_REWARDS[tier]
+    assert episode_reward("binary", got_tier, final, MUL.answer) == binary
+
+
+def test_close_repair_boundary() -> None:
+    # Tolerance max(1, 5% of |answer|): 282 -> 14.1.
+    assert is_close_repair(282 + 14, 282) and is_close_repair(282 - 14, 282)
+    assert not is_close_repair(282 + 15, 282)
+    assert is_close_repair(-268, -282) and not is_close_repair(-267, -282)
+    # The absolute floor of 1 for small answers.
+    assert is_close_repair(4, 3) and is_close_repair(-1, 0) and not is_close_repair(5, 3)
+
+
+class EpisodeAdapter(ScriptedPolicyAdapter):
+    """Turn 1 alternates a right and a wrong answer; turn 2 is scripted."""
+
+    def __init__(self, verdicts: dict[bool, str], turn1: list[str] | None = None) -> None:
+        super().__init__()
+        self.verdicts = verdicts
+        self.turn1 = turn1
+        self.calls: list[tuple[str, int]] = []
+
+    def sample(self, prompt: str, n: int, temperature: float) -> list[str]:
+        self.calls.append((prompt, n))
+        if "proposed answer" in prompt:
+            assert n == 1
+            shown = int(prompt.split("A proposed answer is ")[1].split(".")[0])
+            left, rest = prompt.split("Compute ")[1].split(" + ")
+            answer = int(left) + int(rest.split(".")[0])
+            return [self.verdicts[shown == answer].format(answer=answer)]
+        if self.turn1 is not None:
+            return list(self.turn1)[:n]
+        left, rest = prompt.split("Compute ")[1].split(" + ")
+        answer = int(left) + int(rest.split(".")[0])
+        return [str(answer) if index % 2 == 0 else str(answer + 1) for index in range(n)]
+
+
+def _episodes(reward: str, adapter: EpisodeAdapter, budget: int = 600):
+    source = SelfCheckEpisodeSource(
+        ADD_TASKS, config=SelfCheckEpisodeConfig(reward=reward, samples=4, temperature=0.7),
+        verdict_rate=1.0, seed=0,
+    )
+    result = run_equal_token_training(
+        regime=reward, adapter=adapter, source=source, token_budget=budget, seed=0, verifier=verify_task
+    )
+    return result
+
+
+def test_graded_episodes_train_both_turns_with_episode_advantage() -> None:
+    # Right answers kept (1.0); wrong answers caught and exactly repaired (0.6).
+    adapter = EpisodeAdapter({True: "right", False: "wrong: {answer}"})
+    result = _episodes("graded", adapter)
+    stats = result.on_policy
+    assert stats["groups_trained"] > 0 and stats["reward_tiers"] == {
+        "right_kept": 2 * stats["groups"], "wrong_repaired": 2 * stats["groups"],
+    }
+    # Advantages: 1.0 - 0.8 = +0.2 and 0.6 - 0.8 = -0.2, applied to both turns.
+    assert {round(w, 10) for _, _, w in adapter.weighted} == {0.2, -0.2}
+    by_prompt = [(p, c, round(w, 10)) for p, c, w in adapter.weighted]
+    answer_turns = [x for x in by_prompt if "proposed answer" not in x[0]]
+    verdict_turns = [x for x in by_prompt if "proposed answer" in x[0]]
+    assert len(answer_turns) == len(verdict_turns) == 4 * stats["groups_trained"]
+    assert stats["weighted_updates"] == 8 * stats["groups_trained"]
+    # Budget and generation accounting: 4 turn-1 samples + 4 verdicts per group.
+    assert stats["sample_generation_calls"] == 8 * stats["groups"]
+    assert result.generation_calls == result.pre_update_attempts + stats["sample_generation_calls"]
+    sft = sum(adapter.count_training_tokens(p, t) for p, t in adapter.sft)
+    rl = sum(adapter.count_training_tokens(p, c) for p, c, _ in adapter.weighted)
+    assert stats["update_tokens"] == rl and result.training_tokens == sft + rl <= 600
+    assert stats["samples_correct"] == 4 * stats["groups"]
+
+
+def test_binary_episodes_skip_when_finals_all_correct() -> None:
+    # Same episodes as above: every final answer is correct -> binary skips all.
+    adapter = EpisodeAdapter({True: "right", False: "wrong: {answer}"})
+    result = _episodes("binary", adapter)
+    assert adapter.weighted == [] and result.on_policy["groups_trained"] == 0
+    assert result.on_policy["groups_skipped_equal_rewards"] == result.on_policy["groups"] > 0
+    # Tiers are recorded identically for both rewards.
+    assert set(result.on_policy["reward_tiers"]) == {"right_kept", "wrong_repaired"}
+
+
+def test_binary_episodes_reward_final_answer() -> None:
+    # Wrong answers accepted -> final wrong (0) vs right kept (1): ±0.5.
+    adapter = EpisodeAdapter({True: "right", False: "right"})
+    result = _episodes("binary", adapter)
+    assert result.on_policy["groups_trained"] > 0
+    assert {w for _, _, w in adapter.weighted} == {0.5, -0.5}
+
+
+def test_unparseable_turn1_trains_only_turn1() -> None:
+    adapter = EpisodeAdapter({True: "right", False: "right"}, turn1=["7", "x", "y", "z"])
+    result = _episodes("graded", adapter)
+    stats = result.on_policy
+    # Only parseable turn-1 answers get a verdict call: 4 + 1 per group.
+    assert stats["sample_generation_calls"] == 5 * stats["groups"]
+    assert stats["reward_tiers"]["unparseable_answer"] == 3 * stats["groups"]
+    assert all(p.count("proposed answer") <= 1 for p, _, _ in adapter.weighted)
+    trained = [(p, c) for p, c, _ in adapter.weighted if "proposed answer" not in p]
+    assert {c for _, c in trained} <= {"7", "x", "y", "z"}
+    verdict_turns = [c for p, c, _ in adapter.weighted if "proposed answer" in p]
+    assert len(verdict_turns) * 4 == len(trained)
+
+
+def test_selfcheck_source_queues_episodes_only_for_arithmetic() -> None:
+    config = SelfCheckEpisodeConfig(reward="graded")
+    source = SelfCheckEpisodeSource(ADD_TASKS, config=config, verdict_rate=0.5, seed=0)
+    rng = Random(0)
+    for _ in range(200):
+        source.observe_response(source.base.next_task(rng), "0", False)
+    assert 60 < source.queued["episode_groups"] < 140
+    episode = source.next_task(rng)
+    assert isinstance(episode, SelfCheckEpisode)
+    assert source.on_policy_config(episode) is config and source.on_policy_config(ADD_TASKS[0]) is None
+    source.observe_response(episode, "0", False)  # episodes never queue more episodes
+    with pytest.raises(ValueError):
+        SelfCheckEpisodeConfig(reward="shaped")
+
+
+def test_verdict_rl_binary_path_unchanged() -> None:
+    assert OnPolicyConfig() == OnPolicyConfig(samples=4, temperature=1.0)
+    adapter = ScriptedPolicyAdapter()
+    source = VerdictArithmeticSource(
+        ADD_TASKS, wrong_source="synthetic", verdict_rate=1.0, seed=0,
+        on_policy=OnPolicyConfig(samples=4, temperature=0.7),
+    )
+    result = run_equal_token_training(
+        regime="verdict-rl", adapter=adapter, source=source, token_budget=400, seed=0, verifier=verify_task
+    )
+    tiers = result.on_policy["reward_tiers"]
+    assert set(tiers) == {"correct", "incorrect"}
+    assert tiers["correct"] == result.on_policy["samples_correct"]
+    assert result.on_policy["episodes"] == result.on_policy["sample_generation_calls"]
+    assert {(c, w) for _, c, w in adapter.weighted} == {("right", 0.5), ("junk", -0.5)}
