@@ -35,6 +35,7 @@ Assessed against aive (`HereLiesAz/aive`, docs/Memory-layer.md and docs/architec
 - **Noticing was forbidden along with judging.** No non-judging component may say "these differ", so contradictions reach the reasoner only by luck of ranking and attention budget. Here: the divergence marker.
 - **No handoff contract.** No trigger, timing, or evidence set; conclusions bank as untyped context and can be condensed into one side. Here: the deliberation record.
 - **Popularity wins.** Condensation strengthens shared associations, so the majority wording outranks dissent. In a learner this makes the most common mistake the remembered default. Here: condense only verified-identical items.
+- **Condensation drifted from its purpose.** It was designed for genuinely repeated events — the same event occurring again — and widened in code to "similar enough". Here: condensation folds true repeats only (identical after normalization), keeping a count, every occurrence's time and provenance. Near-repeats are not merged; they get a divergence marker. Repetition count is itself evidence: a mistake made ten times is a pattern for the reasoner, not a strengthened default.
 - **Scale by hiding.** Growth pressure pushes toward more condensation. Here: tier access, keep everything recallable, cap the injected payload instead.
 - **Erasure outside the model.** Here: the single audited exception — purge, tombstone, re-derive.
 
