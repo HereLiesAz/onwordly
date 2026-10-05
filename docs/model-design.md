@@ -16,6 +16,10 @@ The archived Experiments 008–009 (`docs/findings-llm-phase.md`) failed in one 
 6. **Trust shapes learning.** Confident-and-wrong → largest update to answer and to trust. Held correctly under challenge → trust grows. Unsure-and-wrong → small update.
 7. **Truth comes from outside.** The model never certifies itself; the exact checker is the ground truth trust is earned against.
 
+## Consolidation rewrites; storage does not forget
+
+Consolidation is rewriting: the current memory is replaced by a consolidated version, and its sources become history — never deleted, reachable by lineage, faded from default recall (git-like: new commit, immutable past). Similar memories consolidate automatically. Contrasting memories consolidate only after conscious judgment: the model investigates (memories plus other evidence) and writes a deliberation naming the memory it judged correct; later consolidation absorbs that deliberation into the chosen memory, and the other side becomes history, linked to the reason. No deliberation, no consolidation of a contrast; a later deliberation can reopen it. Borrowed from systems consolidation, trace transformation and reconsolidation (Nadel & Moscovitch†; Nader et al. 2000†).
+
 ## Components
 
 | Component | Role | Rule |
